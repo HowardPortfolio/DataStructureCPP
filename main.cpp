@@ -8,40 +8,22 @@
 
 using namespace std;
 
-//LOWER THIS VALUE IF IT TAKES TOO LONG TO TEST
-const int MAX_TRANSACTIONS = 5000001;
-
+const int MAX_TRANSACTIONS = 100000;
 Transaction* card = new Transaction[MAX_TRANSACTIONS];
 Transaction* ach = new Transaction[MAX_TRANSACTIONS];
 Transaction* upi = new Transaction[MAX_TRANSACTIONS];
 Transaction* wire = new Transaction[MAX_TRANSACTIONS];
-Transaction* other = new Transaction[MAX_TRANSACTIONS];
-
-int cardCount = 0, achCount = 0, upiCount = 0, wireCount = 0, otherCount = 0;
+int cardCount = 0, achCount = 0, upiCount = 0, wireCount = 0;
 
 void printTransaction(const Transaction& t) {
     cout << fixed << setprecision(2);
     cout << "ID: " << t.transaction_id
-         << " | Timestamp: " << t.timestamp
-         << " | Sender: " << t.sender_account
-         << " | Receiver: " << t.receiver_account
+         << " | Location: " << t.location
          << " | Amount: " << t.amount
          << " | Type: " << t.transaction_type
-         << " | Location: " << t.location
          << " | Fraud: " << (t.is_fraud ? "YES" : "NO")
          << " | Channel: " << t.payment_channel
-         << " | Fraud Type: " << (t.is_fraud ? t.fraud_type : "N/A");
-
-    if (!t.time_since_last_transaction.empty()) {
-        try {
-            double val = stod(t.time_since_last_transaction);
-            cout << " | Time Since Last Txn: " << val;
-        } catch (...) {
-            cout << " | Time Since Last Txn: Invalid";
-        }
-    }
-
-    cout << endl;
+         << endl;
 }
 
 Transaction parseTransaction(const string& line) {
@@ -58,11 +40,8 @@ Transaction parseTransaction(const string& line) {
     getline(ss, t.merchant_category, ',');
     getline(ss, t.location, ',');
     getline(ss, t.device_used, ',');
-
-    getline(ss, cell, ',');
-    for (char& c : cell) c = tolower(c);
+    getline(ss, cell, ','); for (char& c : cell) c = tolower(c);
     t.is_fraud = (cell == "true");
-
     getline(ss, t.fraud_type, ',');
     getline(ss, t.time_since_last_transaction, ',');
     getline(ss, t.spending_deviation_score, ',');
@@ -78,12 +57,13 @@ Transaction parseTransaction(const string& line) {
 void loadData(const string& filename) {
     ifstream file(filename);
     if (!file.is_open()) {
-        cerr << "Error opening file." << endl;
+        cerr << "Error opening file.\n";
         return;
     }
 
     string line;
-    getline(file, line);
+    getline(file, line); // skip header
+    cardCount = achCount = upiCount = wireCount = 0;
 
     while (getline(file, line)) {
         if (line.empty() || count(line.begin(), line.end(), ',') < 17)
@@ -99,14 +79,6 @@ void loadData(const string& filename) {
             upi[upiCount++] = t;
         else if (t.payment_channel == "wire_transfer" && wireCount < MAX_TRANSACTIONS)
             wire[wireCount++] = t;
-        else if (
-            t.payment_channel != "card" &&
-            t.payment_channel != "ACH" &&
-            t.payment_channel != "UPI" &&
-            t.payment_channel != "wire_transfer" &&
-            otherCount < MAX_TRANSACTIONS
-        )
-            other[otherCount++] = t;
     }
 
     file.close();
@@ -115,19 +87,116 @@ void loadData(const string& filename) {
     cout << "Card: " << cardCount
          << " | ACH: " << achCount
          << " | UPI: " << upiCount
-         << " | Wire Transfer: " << wireCount
-         << " | Other: " << otherCount << endl;
-
-    cout << "\nLast transaction parsed:\n";
-    if (otherCount > 0) printTransaction(other[otherCount - 1]);
-    else if (wireCount > 0) printTransaction(wire[wireCount - 1]);
-    else if (upiCount > 0) printTransaction(upi[upiCount - 1]);
-    else if (achCount > 0) printTransaction(ach[achCount - 1]);
-    else if (cardCount > 0) printTransaction(card[cardCount - 1]);
-    else cout << "No transactions loaded.\n";
+         << " | Wire Transfer: " << wireCount << endl;
 }
 
-void bucketSortByLocation(Transaction* arr, int& count) {
+// Helpers for Search
+string toLower(const string& str) {
+    string result = str;
+    transform(result.begin(), result.end(), result.begin(), ::tolower);
+    return result;
+}
+
+void displaySearchMenu() {
+    cout << "\n========= SEARCH MENU =========\n";
+    cout << "1-18: Search by specific field\n";
+    cout << "19: All-rounder search (any field)\n";
+    cout << "20: Back to Main Menu\n";
+    cout << "Choose an option: ";
+}
+
+void searchTransactions(const string& searchField, const string& searchTermLower, int page) {
+    int shown = 0, startIdx = page * 10;
+    bool foundAny = false;
+
+    for (int i = 0; i < cardCount; i++) {
+        string value = toLower(
+            (searchField == "transaction_id") ? card[i].transaction_id :
+            (searchField == "timestamp") ? card[i].timestamp :
+            (searchField == "sender_account") ? card[i].sender_account :
+            (searchField == "receiver_account") ? card[i].receiver_account :
+            (searchField == "amount") ? to_string(card[i].amount) :
+            (searchField == "transaction_type") ? card[i].transaction_type :
+            (searchField == "merchant_category") ? card[i].merchant_category :
+            (searchField == "location") ? card[i].location :
+            (searchField == "device_used") ? card[i].device_used :
+            (searchField == "is_fraud") ? (card[i].is_fraud ? "true" : "false") :
+            (searchField == "fraud_type") ? card[i].fraud_type :
+            (searchField == "time_since_last_transaction") ? card[i].time_since_last_transaction :
+            (searchField == "spending_deviation_score") ? card[i].spending_deviation_score :
+            (searchField == "velocity_score") ? to_string(card[i].velocity_score) :
+            (searchField == "geo_anomaly_score") ? to_string(card[i].geo_anomaly_score) :
+            (searchField == "payment_channel") ? card[i].payment_channel :
+            (searchField == "ip_address") ? card[i].ip_address :
+            (searchField == "device_hash") ? card[i].device_hash : "");
+
+        if (value.find(searchTermLower) != string::npos) {
+            if (shown >= startIdx && shown < startIdx + 10)
+                printTransaction(card[i]);
+            shown++;
+            foundAny = true;
+        }
+    }
+
+    if (!foundAny)
+        cout << "No results found. Check for typos.\n";
+    else if (shown <= startIdx)
+        cout << "No more results.\n";
+}
+
+void handleSearchMenu() {
+    int searchChoice;
+    do {
+        displaySearchMenu();
+        cin >> searchChoice;
+
+        if (searchChoice == 20) break;
+
+        string field;
+        switch (searchChoice) {
+            case 1: field = "transaction_id"; break;
+            case 2: field = "timestamp"; break;
+            case 3: field = "sender_account"; break;
+            case 4: field = "receiver_account"; break;
+            case 5: field = "amount"; break;
+            case 6: field = "transaction_type"; break;
+            case 7: field = "merchant_category"; break;
+            case 8: field = "location"; break;
+            case 9: field = "device_used"; break;
+            case 10: field = "is_fraud"; break;
+            case 11: field = "fraud_type"; break;
+            case 12: field = "time_since_last_transaction"; break;
+            case 13: field = "spending_deviation_score"; break;
+            case 14: field = "velocity_score"; break;
+            case 15: field = "geo_anomaly_score"; break;
+            case 16: field = "payment_channel"; break;
+            case 17: field = "ip_address"; break;
+            case 18: field = "device_hash"; break;
+            case 19: field = "all"; break;
+            default: cout << "Invalid choice.\n"; continue;
+        }
+
+        string searchTerm;
+        cout << "Enter search term (case-insensitive): ";
+        cin.ignore();
+        getline(cin, searchTerm);
+        string searchTermLower = toLower(searchTerm);
+
+        int page = 0;
+        char nav;
+        do {
+            searchTransactions(field, searchTermLower, page);
+            cout << "\n[N]ext Page | [P]revious Page | [B]ack to Search Menu: ";
+            cin >> nav;
+            nav = tolower(nav);
+            if (nav == 'n') page++;
+            else if (nav == 'p' && page > 0) page--;
+        } while (nav != 'b');
+    } while (true);
+}
+
+// Bucket sort by location (A-Z)
+void bucketSortByLocation(Transaction* arr, int& count, bool reverse = false) {
     const string cities[] = {
         "Berlin", "Dubai", "London", "New York", "Singapore",
         "Sydney", "Tokyo", "Toronto"
@@ -139,7 +208,7 @@ void bucketSortByLocation(Transaction* arr, int& count) {
     int* bucketCaps = new int[NUM_BUCKETS];
 
     for (int i = 0; i < NUM_BUCKETS; i++) {
-        bucketCaps[i] = count; // worst case
+        bucketCaps[i] = count;
         buckets[i] = new Transaction[bucketCaps[i]];
     }
 
@@ -153,10 +222,14 @@ void bucketSortByLocation(Transaction* arr, int& count) {
     }
 
     int idx = 0;
-    for (int i = 0; i < NUM_BUCKETS; i++) {
-        for (int j = 0; j < bucketSizes[i]; j++) {
-            arr[idx++] = buckets[i][j];
-        }
+    if (!reverse) {
+        for (int i = 0; i < NUM_BUCKETS; i++)
+            for (int j = 0; j < bucketSizes[i]; j++)
+                arr[idx++] = buckets[i][j];
+    } else {
+        for (int i = NUM_BUCKETS - 1; i >= 0; i--)
+            for (int j = 0; j < bucketSizes[i]; j++)
+                arr[idx++] = buckets[i][j];
     }
 
     for (int i = 0; i < NUM_BUCKETS; i++)
@@ -166,64 +239,137 @@ void bucketSortByLocation(Transaction* arr, int& count) {
     delete[] bucketCaps;
 }
 
-void displayMenu() {
-    cout << "\n========= Transaction Menu =========\n";
-    cout << "1. Show first 5 Card transactions\n";
-    cout << "2. Show first 5 ACH transactions\n";
-    cout << "3. Show first 5 UPI transactions\n";
-    cout << "4. Show first 5 Wire Transfer transactions\n";
-    cout << "5. Show first 5 Other transactions\n";
-    cout << "6. Sort ALL groups by Location (Bucket Sort)\n";
-    cout << "7. Exit\n";
+void showFirst5(Transaction* arr, int count) {
+    for (int i = 0; i < 5 && i < count; ++i)
+        printTransaction(arr[i]);
+}
+
+void handleSortMenu() {
+    int sortChoice;
+    do {
+        cout << "\n========= SORT MENU =========\n";
+        cout << "1. Sort all by location (A-Z)\n";
+        cout << "2. Sort all by location (Z-A)\n";
+        cout << "3. Back to Main Menu\n";
+        cout << "Choose an option: ";
+        cin >> sortChoice;
+
+        if (sortChoice == 3) break;
+
+        bool reverse = (sortChoice == 2);
+        bucketSortByLocation(card, cardCount, reverse);
+        bucketSortByLocation(ach, achCount, reverse);
+        bucketSortByLocation(upi, upiCount, reverse);
+        bucketSortByLocation(wire, wireCount, reverse);
+
+        cout << "\n--- First 5 Card Transactions ---\n";
+        showFirst5(card, cardCount);
+
+        cout << "\n--- First 5 ACH Transactions ---\n";
+        showFirst5(ach, achCount);
+
+        cout << "\n--- First 5 UPI Transactions ---\n";
+        showFirst5(upi, upiCount);
+
+        cout << "\n--- First 5 Wire Transfer Transactions ---\n";
+        showFirst5(wire, wireCount);
+
+    } while (true);
+}
+
+#include <cstdlib>
+#include <ctime>
+
+// Show random transactions
+void showRandomSamples() {
+    srand(time(0));
+    Transaction* all[4] = { card, ach, upi, wire };
+    int counts[4] = { cardCount, achCount, upiCount, wireCount };
+
+    cout << "\n--- Random 5 Transactions ---\n";
+    for (int i = 0; i < 5; i++) {
+        int channelIdx = rand() % 4;
+        if (counts[channelIdx] == 0) continue;
+        int idx = rand() % counts[channelIdx];
+        printTransaction(all[channelIdx][idx]);
+    }
+}
+
+// Show top 5 of each
+void showTop5All() {
+    cout << "\n--- First 5 Card Transactions ---\n";
+    showFirst5(card, cardCount);
+
+    cout << "\n--- First 5 ACH Transactions ---\n";
+    showFirst5(ach, achCount);
+
+    cout << "\n--- First 5 UPI Transactions ---\n";
+    showFirst5(upi, upiCount);
+
+    cout << "\n--- First 5 Wire Transfer Transactions ---\n";
+    showFirst5(wire, wireCount);
+}
+
+void handleTestingMenu() {
+    int testChoice;
+    do {
+        cout << "\n========= TESTING MENU =========\n";
+        cout << "1. Confirm data load (counts)\n";
+        cout << "2. Show random transaction samples\n";
+        cout << "3. Show top 5 of each type\n";
+        cout << "4. Back to Main Menu\n";
+        cout << "Choose an option: ";
+        cin >> testChoice;
+
+        switch (testChoice) {
+            case 1:
+                cout << "\nCard: " << cardCount
+                     << " | ACH: " << achCount
+                     << " | UPI: " << upiCount
+                     << " | Wire Transfer: " << wireCount << endl;
+                break;
+            case 2: showRandomSamples(); break;
+            case 3: showTop5All(); break;
+            case 4: break;
+            default: cout << "Invalid choice.\n";
+        }
+    } while (testChoice != 4);
+}
+
+
+
+// Main Menu
+void displayMainMenu() {
+    cout << "\n========= MAIN MENU =========\n";
+    cout << "1. Search\n";
+    cout << "2. Sort\n";
+    cout << "3. Testing\n";
+    cout << "4. Exit\n";
     cout << "Choose an option: ";
 }
 
-void showTransactions(Transaction* arr, int count) {
-    if (count == 0) {
-        cout << "No transactions found in this group.\n";
-        return;
-    }
-
-    for (int i = 0; i < 5 && i < count; ++i) {
-        printTransaction(arr[i]);
-    }
-}
-
 int main() {
-    loadData("financial_fraud_detection.csv");
+    const string filename = "financial_fraud_detection.csv";
+    loadData(filename);
 
-    int choice;
+    int mainChoice;
     do {
-        displayMenu();
-        cin >> choice;
+        displayMainMenu();
+        cin >> mainChoice;
 
-        switch (choice) {
-            case 1: showTransactions(card, cardCount); break;
-            case 2: showTransactions(ach, achCount); break;
-            case 3: showTransactions(upi, upiCount); break;
-            case 4: showTransactions(wire, wireCount); break;
-            case 5: showTransactions(other, otherCount); break;
-            case 6:
-                bucketSortByLocation(card, cardCount);
-                bucketSortByLocation(ach, achCount);
-                bucketSortByLocation(upi, upiCount);
-                bucketSortByLocation(wire, wireCount);
-                bucketSortByLocation(other, otherCount);
-                cout << "All groups sorted by location (bucket sort).\n";
-                break;
-            case 7:
-                cout << "Exiting...\n";
-                break;
-            default:
-                cout << "Invalid choice. Try again.\n";
+        switch (mainChoice) {
+            case 1: handleSearchMenu(); break;
+            case 2: handleSortMenu(); break;
+            case 3: handleTestingMenu(); break;
+            case 4: cout << "Exiting program.\n"; break;
+            default: cout << "Invalid choice. Try again.\n";
         }
-    } while (choice != 7);
+    } while (mainChoice != 4);
 
     delete[] card;
     delete[] ach;
     delete[] upi;
     delete[] wire;
-    delete[] other;
 
     return 0;
 }
