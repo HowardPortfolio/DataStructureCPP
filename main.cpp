@@ -4,11 +4,14 @@
 #include <iomanip>
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
+#include <ctime>
+#include <limits>
 #include "transaction.hpp"
 
 using namespace std;
 
-const int MAX_TRANSACTIONS = 100000;
+const int MAX_TRANSACTIONS = 1000;
 Transaction* card = new Transaction[MAX_TRANSACTIONS];
 Transaction* ach = new Transaction[MAX_TRANSACTIONS];
 Transaction* upi = new Transaction[MAX_TRANSACTIONS];
@@ -62,7 +65,7 @@ void loadData(const string& filename) {
     }
 
     string line;
-    getline(file, line); // skip header
+    getline(file, line);
     cardCount = achCount = upiCount = wireCount = 0;
 
     while (getline(file, line)) {
@@ -90,51 +93,30 @@ void loadData(const string& filename) {
          << " | Wire Transfer: " << wireCount << endl;
 }
 
-// Helpers for Search
+// Helper: convert to lowercase
 string toLower(const string& str) {
     string result = str;
     transform(result.begin(), result.end(), result.begin(), ::tolower);
     return result;
 }
 
-void displaySearchMenu() {
-    cout << "\n========= SEARCH MENU =========\n";
-    cout << "1-18: Search by specific field\n";
-    cout << "19: All-rounder search (any field)\n";
-    cout << "20: Back to Main Menu\n";
-    cout << "Choose an option: ";
-}
-
-void searchTransactions(const string& searchField, const string& searchTermLower, int page) {
+// Search by Transaction Type
+void searchByTransactionType(const string& searchTypeLower, int page) {
     int shown = 0, startIdx = page * 10;
     bool foundAny = false;
 
-    for (int i = 0; i < cardCount; i++) {
-        string value = toLower(
-            (searchField == "transaction_id") ? card[i].transaction_id :
-            (searchField == "timestamp") ? card[i].timestamp :
-            (searchField == "sender_account") ? card[i].sender_account :
-            (searchField == "receiver_account") ? card[i].receiver_account :
-            (searchField == "amount") ? to_string(card[i].amount) :
-            (searchField == "transaction_type") ? card[i].transaction_type :
-            (searchField == "merchant_category") ? card[i].merchant_category :
-            (searchField == "location") ? card[i].location :
-            (searchField == "device_used") ? card[i].device_used :
-            (searchField == "is_fraud") ? (card[i].is_fraud ? "true" : "false") :
-            (searchField == "fraud_type") ? card[i].fraud_type :
-            (searchField == "time_since_last_transaction") ? card[i].time_since_last_transaction :
-            (searchField == "spending_deviation_score") ? card[i].spending_deviation_score :
-            (searchField == "velocity_score") ? to_string(card[i].velocity_score) :
-            (searchField == "geo_anomaly_score") ? to_string(card[i].geo_anomaly_score) :
-            (searchField == "payment_channel") ? card[i].payment_channel :
-            (searchField == "ip_address") ? card[i].ip_address :
-            (searchField == "device_hash") ? card[i].device_hash : "");
+    Transaction* all[] = { card, ach, upi, wire };
+    int counts[] = { cardCount, achCount, upiCount, wireCount };
 
-        if (value.find(searchTermLower) != string::npos) {
-            if (shown >= startIdx && shown < startIdx + 10)
-                printTransaction(card[i]);
-            shown++;
-            foundAny = true;
+    for (int c = 0; c < 4; c++) {
+        for (int i = 0; i < counts[c]; i++) {
+            string typeLower = toLower(all[c][i].transaction_type);
+            if (typeLower.find(searchTypeLower) != string::npos) {
+                if (shown >= startIdx && shown < startIdx + 10)
+                    printTransaction(all[c][i]);
+                shown++;
+                foundAny = true;
+            }
         }
     }
 
@@ -144,63 +126,54 @@ void searchTransactions(const string& searchField, const string& searchTermLower
         cout << "No more results.\n";
 }
 
+void displaySearchMenu() {
+    cout << "\n========= SEARCH MENU =========\n";
+    cout << "1. Search by Transaction Type\n";
+    cout << "2. Back to Main Menu\n";
+    cout << "Choose an option: ";
+}
+
 void handleSearchMenu() {
     int searchChoice;
     do {
         displaySearchMenu();
         cin >> searchChoice;
 
-        if (searchChoice == 20) break;
-
-        string field;
-        switch (searchChoice) {
-            case 1: field = "transaction_id"; break;
-            case 2: field = "timestamp"; break;
-            case 3: field = "sender_account"; break;
-            case 4: field = "receiver_account"; break;
-            case 5: field = "amount"; break;
-            case 6: field = "transaction_type"; break;
-            case 7: field = "merchant_category"; break;
-            case 8: field = "location"; break;
-            case 9: field = "device_used"; break;
-            case 10: field = "is_fraud"; break;
-            case 11: field = "fraud_type"; break;
-            case 12: field = "time_since_last_transaction"; break;
-            case 13: field = "spending_deviation_score"; break;
-            case 14: field = "velocity_score"; break;
-            case 15: field = "geo_anomaly_score"; break;
-            case 16: field = "payment_channel"; break;
-            case 17: field = "ip_address"; break;
-            case 18: field = "device_hash"; break;
-            case 19: field = "all"; break;
-            default: cout << "Invalid choice.\n"; continue;
+        if (cin.fail()) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid input. Please enter a number.\n";
+            continue;
         }
 
-        string searchTerm;
-        cout << "Enter search term (case-insensitive): ";
-        cin.ignore();
-        getline(cin, searchTerm);
-        string searchTermLower = toLower(searchTerm);
+        if (searchChoice == 2) break;
 
-        int page = 0;
-        char nav;
-        do {
-            searchTransactions(field, searchTermLower, page);
-            cout << "\n[N]ext Page | [P]revious Page | [B]ack to Search Menu: ";
-            cin >> nav;
-            nav = tolower(nav);
-            if (nav == 'n') page++;
-            else if (nav == 'p' && page > 0) page--;
-        } while (nav != 'b');
+        if (searchChoice == 1) {
+            string searchTerm;
+            cout << "Enter Transaction Type (case-insensitive): ";
+            cin.ignore();
+            getline(cin, searchTerm);
+            string searchTermLower = toLower(searchTerm);
+
+            int page = 0;
+            char nav;
+            do {
+                searchByTransactionType(searchTermLower, page);
+                cout << "\nPage " << page + 1 << " - [N]ext Page | [P]revious Page | [B]ack: ";
+                cin >> nav;
+                nav = tolower(nav);
+                if (nav == 'n') page++;
+                else if (nav == 'p' && page > 0) page--;
+            } while (nav != 'b');
+        } else {
+            cout << "Invalid choice.\n";
+        }
     } while (true);
 }
 
-// Bucket sort by location (A-Z)
+// Bucket Sort (A-Z / Z-A)
 void bucketSortByLocation(Transaction* arr, int& count, bool reverse = false) {
-    const string cities[] = {
-        "Berlin", "Dubai", "London", "New York", "Singapore",
-        "Sydney", "Tokyo", "Toronto"
-    };
+    const string cities[] = { "Berlin", "Dubai", "London", "New York", "Singapore", "Sydney", "Tokyo", "Toronto" };
     const int NUM_BUCKETS = sizeof(cities) / sizeof(cities[0]);
 
     Transaction** buckets = new Transaction*[NUM_BUCKETS];
@@ -254,6 +227,13 @@ void handleSortMenu() {
         cout << "Choose an option: ";
         cin >> sortChoice;
 
+        if (cin.fail()) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid input. Please enter a number.\n";
+            continue;
+        }
+
         if (sortChoice == 3) break;
 
         bool reverse = (sortChoice == 2);
@@ -264,23 +244,16 @@ void handleSortMenu() {
 
         cout << "\n--- First 5 Card Transactions ---\n";
         showFirst5(card, cardCount);
-
         cout << "\n--- First 5 ACH Transactions ---\n";
         showFirst5(ach, achCount);
-
         cout << "\n--- First 5 UPI Transactions ---\n";
         showFirst5(upi, upiCount);
-
         cout << "\n--- First 5 Wire Transfer Transactions ---\n";
         showFirst5(wire, wireCount);
 
     } while (true);
 }
 
-#include <cstdlib>
-#include <ctime>
-
-// Show random transactions
 void showRandomSamples() {
     srand(time(0));
     Transaction* all[4] = { card, ach, upi, wire };
@@ -295,17 +268,13 @@ void showRandomSamples() {
     }
 }
 
-// Show top 5 of each
 void showTop5All() {
     cout << "\n--- First 5 Card Transactions ---\n";
     showFirst5(card, cardCount);
-
     cout << "\n--- First 5 ACH Transactions ---\n";
     showFirst5(ach, achCount);
-
     cout << "\n--- First 5 UPI Transactions ---\n";
     showFirst5(upi, upiCount);
-
     cout << "\n--- First 5 Wire Transfer Transactions ---\n";
     showFirst5(wire, wireCount);
 }
@@ -320,6 +289,13 @@ void handleTestingMenu() {
         cout << "4. Back to Main Menu\n";
         cout << "Choose an option: ";
         cin >> testChoice;
+
+        if (cin.fail()) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid input. Please enter a number.\n";
+            continue;
+        }
 
         switch (testChoice) {
             case 1:
@@ -336,9 +312,6 @@ void handleTestingMenu() {
     } while (testChoice != 4);
 }
 
-
-
-// Main Menu
 void displayMainMenu() {
     cout << "\n========= MAIN MENU =========\n";
     cout << "1. Search\n";
@@ -356,6 +329,13 @@ int main() {
     do {
         displayMainMenu();
         cin >> mainChoice;
+
+        if (cin.fail()) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid input. Please enter a number.\n";
+            continue;
+        }
 
         switch (mainChoice) {
             case 1: handleSearchMenu(); break;
