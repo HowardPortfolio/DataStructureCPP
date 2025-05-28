@@ -8,10 +8,9 @@
 #include <ctime>
 #include <limits>
 #include "transaction.hpp"
-
 using namespace std;
 
-const int MAX_TRANSACTIONS = 10000;
+const int MAX_TRANSACTIONS = 1000;
 Transaction* card = new Transaction[MAX_TRANSACTIONS];
 Transaction* ach = new Transaction[MAX_TRANSACTIONS];
 Transaction* upi = new Transaction[MAX_TRANSACTIONS];
