@@ -11,7 +11,7 @@
 
 using namespace std;
 
-const int MAX_TRANSACTIONS = 1000;
+const int MAX_TRANSACTIONS = 10000;
 Transaction* card = new Transaction[MAX_TRANSACTIONS];
 Transaction* ach = new Transaction[MAX_TRANSACTIONS];
 Transaction* upi = new Transaction[MAX_TRANSACTIONS];
