@@ -93,14 +93,12 @@ void loadData(const string& filename) {
          << " | Wire Transfer: " << wireCount << endl;
 }
 
-// Helper: convert to lowercase
 string toLower(const string& str) {
     string result = str;
     transform(result.begin(), result.end(), result.begin(), ::tolower);
     return result;
 }
 
-// Search by Transaction Type
 void searchByTransactionType(const string& searchTypeLower, int page) {
     int shown = 0, startIdx = page * 10;
     bool foundAny = false;
@@ -171,7 +169,6 @@ void handleSearchMenu() {
     } while (true);
 }
 
-// Bucket Sort (A-Z / Z-A)
 void bucketSortByLocation(Transaction* arr, int& count, bool reverse = false) {
     const string cities[] = { "Berlin", "Dubai", "London", "New York", "Singapore", "Sydney", "Tokyo", "Toronto" };
     const int NUM_BUCKETS = sizeof(cities) / sizeof(cities[0]);

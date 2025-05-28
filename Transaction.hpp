@@ -1,27 +1,27 @@
 #ifndef TRANSACTION_HPP
 #define TRANSACTION_HPP
-
 #include <string>
+using namespace std;
 
 struct Transaction {
-    std::string transaction_id;
-    std::string timestamp;
-    std::string sender_account;
-    std::string receiver_account;
+    string transaction_id;
+    string timestamp;
+    string sender_account;
+    string receiver_account;
     double amount;
-    std::string transaction_type;
-    std::string merchant_category;
-    std::string location;
-    std::string device_used;
+    string transaction_type;
+    string merchant_category;
+    string location;
+    string device_used;
     bool is_fraud;
-    std::string fraud_type;
-    std::string time_since_last_transaction;
-    std::string spending_deviation_score;
+    string fraud_type;
+    string time_since_last_transaction;
+    string spending_deviation_score;
     double velocity_score;
     double geo_anomaly_score;
-    std::string payment_channel;
-    std::string ip_address;
-    std::string device_hash;
+    string payment_channel;
+    string ip_address;
+    string device_hash;
 };
 
 #endif // TRANSACTION_HPP
