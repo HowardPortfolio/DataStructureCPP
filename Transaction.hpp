@@ -24,4 +24,4 @@ struct Transaction {
     string device_hash;
 };
 
-#endif // TRANSACTION_HPP
+#endif
