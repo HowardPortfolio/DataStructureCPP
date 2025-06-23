@@ -4,7 +4,7 @@
 #include "Transaction.hpp"
 #include <iostream>
 
-#define MAX_TRANSACTIONS 10000
+#define MAX_TRANSACTIONS 1000
 
 class ArrayTransactionStore
 {

@@ -494,36 +494,65 @@ void handleSearchMenu()
 
             auto start = high_resolution_clock::now();
 
+            int page = 0;
+            char nav;
             bool found = false;
-            if (!isLinkedMode)
+            do
             {
-                for (int i = 0; i < cardStore.size(); ++i)
+                if (!isLinkedMode)
                 {
-                    if (toLower(cardStore.get(i).transaction_type) == searchTermLower)
+                    int idx = binarySearchTransactionType(cardStore, searchTermLower);
+                    if (idx != -1)
                     {
-                        printTransaction(cardStore.get(i));
                         found = true;
+                        searchByTransactionType(searchTermLower, page);
+                        auto end = high_resolution_clock::now();
+                        auto duration = duration_cast<milliseconds>(end - start);
+                        cout << "\n[INFO] Binary Search Time: " << duration.count() << " ms\n";
+                        printMemoryUsage();
+                    }
+                    else
+                    {
+                        found = false;
+                        cout << "Not found.\n";
+                        auto end = high_resolution_clock::now();
+                        auto duration = duration_cast<milliseconds>(end - start);
+                        cout << "\n[INFO] Binary Search Time: " << duration.count() << " ms\n";
+                        printMemoryUsage();
+                        break;
                     }
                 }
-            }
-            else
-            {
-                ListNode *curr = cardLL.getHead();
-                while (curr != nullptr)
+                else
                 {
-                    if (toLower(curr->data.transaction_type) == searchTermLower)
+                    ListNode *node = binarySearchTransactionType(cardLL, searchTermLower);
+                    if (node)
                     {
-                        printTransaction(curr->data);
                         found = true;
+                        searchByTransactionType(searchTermLower, page);
+                        auto end = high_resolution_clock::now();
+                        auto duration = duration_cast<milliseconds>(end - start);
+                        cout << "\n[INFO] Binary Search Time: " << duration.count() << " ms\n";
+                        printMemoryUsage();
                     }
-                    curr = curr->next;
+                    else
+                    {
+                        found = false;
+                        cout << "Not found.\n";
+                        auto end = high_resolution_clock::now();
+                        auto duration = duration_cast<milliseconds>(end - start);
+                        cout << "\n[INFO] Binary Search Time: " << duration.count() << " ms\n";
+                        printMemoryUsage();
+                        break;
+                    }
                 }
-            }
-
-            auto end = high_resolution_clock::now();
-            auto duration = duration_cast<milliseconds>(end - start);
-            cout << "\n[INFO] Binary Search Time: " << duration.count() << " ms\n";
-            printMemoryUsage();
+                cout << "\nPage " << (page + 1) << " | [N]ext Page | [P]revious Page | [B]ack: ";
+                cin >> nav;
+                nav = tolower(nav);
+                if (nav == 'n')
+                    page++;
+                else if (nav == 'p' && page > 0)
+                    page--;
+            } while (nav != 'b');
 
             if (!found)
                 cout << "Not found.\n";
@@ -539,17 +568,16 @@ void handleSearchMenu()
 
             auto start = high_resolution_clock::now();
 
-            auto end = high_resolution_clock::now();
-            auto duration = duration_cast<milliseconds>(end - start);
-            cout << "\n[INFO] Linear Search Time: " << duration.count() << " ms\n";
-            printMemoryUsage();
-            cout << endl;
-
             int page = 0;
             char nav;
             do
             {
                 searchByTransactionType(searchTermLower, page);
+                auto end = high_resolution_clock::now();
+                auto duration = duration_cast<milliseconds>(end - start);
+                cout << "\n[INFO] Linear Search Time: " << duration.count() << " ms\n";
+                printMemoryUsage();
+                cout << endl;
                 cout << "\nPage " << (page + 1) << " | [N]ext Page | [P]revious Page | [B]ack: ";
                 cin >> nav;
                 nav = tolower(nav);
