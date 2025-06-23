@@ -539,6 +539,12 @@ void handleSearchMenu()
 
             auto start = high_resolution_clock::now();
 
+            auto end = high_resolution_clock::now();
+            auto duration = duration_cast<milliseconds>(end - start);
+            cout << "\n[INFO] Linear Search Time: " << duration.count() << " ms\n";
+            printMemoryUsage();
+            cout << endl;
+
             int page = 0;
             char nav;
             do
@@ -552,11 +558,6 @@ void handleSearchMenu()
                 else if (nav == 'p' && page > 0)
                     page--;
             } while (nav != 'b');
-
-            auto end = high_resolution_clock::now();
-            auto duration = duration_cast<milliseconds>(end - start);
-            cout << "\n[INFO] Linear Search Time: " << duration.count() << " ms\n";
-            printMemoryUsage();
         }
 
         else
@@ -805,6 +806,12 @@ void handleSortMenu()
         if (!isLinkedMode)
         {
             auto start = high_resolution_clock::now();
+            auto end = high_resolution_clock::now();
+            auto duration = duration_cast<milliseconds>(end - start);
+
+            cout << "\n[ARRAY] " << (isQuickSort ? "Quick Sort" : "Bucket Sort")
+                 << " Time: " << duration.count() << " ms\n";
+            printMemoryUsage();
 
             if (isQuickSort)
             {
@@ -821,13 +828,6 @@ void handleSortMenu()
                 bucketSortByLocation(wireStore, reverse);
             }
 
-            auto end = high_resolution_clock::now();
-            auto duration = duration_cast<milliseconds>(end - start);
-
-            cout << "\n[ARRAY] " << (isQuickSort ? "Quick Sort" : "Bucket Sort")
-                 << " Time: " << duration.count() << " ms\n";
-            printMemoryUsage();
-
             bool exitEarly = false;
             paginateArrayResults("Card Transactions", cardStore, exitEarly);
             if (exitEarly)
@@ -843,6 +843,12 @@ void handleSortMenu()
         else
         {
             auto start = high_resolution_clock::now();
+            auto end = high_resolution_clock::now();
+            auto duration = duration_cast<milliseconds>(end - start);
+
+            cout << "\n[LINKED LIST] " << (isQuickSort ? "Quick Sort" : "Bucket Sort")
+                 << " Time: " << duration.count() << " ms\n";
+            printMemoryUsage();
 
             if (isQuickSort)
             {
@@ -858,13 +864,6 @@ void handleSortMenu()
                 bucketSortByLocation(upiLL, reverse);
                 bucketSortByLocation(wireLL, reverse);
             }
-
-            auto end = high_resolution_clock::now();
-            auto duration = duration_cast<milliseconds>(end - start);
-
-            cout << "\n[LINKED LIST] " << (isQuickSort ? "Quick Sort" : "Bucket Sort")
-                 << " Time: " << duration.count() << " ms\n";
-            printMemoryUsage();
 
             bool exitEarly = false;
             paginateLinkedListResults("Card Transactions", cardLL, exitEarly);
