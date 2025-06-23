@@ -3,7 +3,8 @@
 #include <string>
 using namespace std;
 
-struct Transaction {
+struct Transaction
+{
     string transaction_id;
     string timestamp;
     string sender_account;

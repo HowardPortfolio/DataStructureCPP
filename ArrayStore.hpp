@@ -6,7 +6,8 @@
 
 #define MAX_TRANSACTIONS 10000
 
-class ArrayTransactionStore {
+class ArrayTransactionStore
+{
 private:
     Transaction transactions[MAX_TRANSACTIONS];
     int count;
@@ -14,16 +15,19 @@ private:
 public:
     ArrayTransactionStore() : count(0) {}
 
-    void add(const Transaction& t) {
+    void add(const Transaction &t)
+    {
         if (count < MAX_TRANSACTIONS)
             transactions[count++] = t;
     }
 
-    int size() const {
+    int size() const
+    {
         return count;
     }
 
-    Transaction get(int index) const {
+    Transaction get(int index) const
+    {
         return transactions[index];
     }
 };

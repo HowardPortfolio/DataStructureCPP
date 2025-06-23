@@ -5,7 +5,8 @@
 
 #define MAX_TRANSACTIONS 1000
 
-class ArrayTransactionStore {
+class ArrayTransactionStore
+{
 private:
     Transaction transactions[MAX_TRANSACTIONS];
     int count;
@@ -13,9 +14,20 @@ private:
 public:
     ArrayTransactionStore() : count(0) {}
 
-    void add(const Transaction& t) {
+    void add(const Transaction &t)
+    {
         if (count < MAX_TRANSACTIONS)
             transactions[count++] = t;
+    }
+
+    void swap(int i, int j)
+    {
+        if (i >= 0 && j >= 0 && i < count && j < count)
+        {
+            Transaction temp = transactions[i];
+            transactions[i] = transactions[j];
+            transactions[j] = temp;
+        }
     }
 
     int size() const { return count; }
@@ -23,4 +35,4 @@ public:
     void clear() { count = 0; }
 };
 
-#endif 
+#endif

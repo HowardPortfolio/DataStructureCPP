@@ -5,35 +5,59 @@
 using namespace std;
 #include "Transaction.hpp"
 
-struct ListNode {
+struct ListNode
+{
     Transaction data;
-    ListNode* next;
+    ListNode *next;
 };
 
-class LinkedListTransactionStore {
+class LinkedListTransactionStore
+{
 private:
-    ListNode* head;
-    ListNode* tail;
+    ListNode *head;
+    ListNode *tail;
     int count;
 
 public:
     LinkedListTransactionStore() : head(nullptr), tail(nullptr), count(0) {}
     ~LinkedListTransactionStore() { clear(); }
 
-    void add(const Transaction& t) {
-        ListNode* node = new ListNode{t, nullptr};
-        if (!head) head = tail = node;
-        else tail->next = node, tail = node;
+    void add(const Transaction &t)
+    {
+        ListNode *node = new ListNode{t, nullptr};
+        if (!head)
+            head = tail = node;
+        else
+            tail->next = node, tail = node;
         count++;
     }
 
     int size() const { return count; }
 
-    ListNode* getHead() const { return head; }
+    ListNode *getHead() const { return head; }
 
-    void clear() {
-        while (head) {
-            ListNode* temp = head;
+    void setHead(ListNode *newHead)
+    {
+        head = newHead;
+
+        // Recalculate tail and count
+        tail = nullptr;
+        count = 0;
+        ListNode *curr = head;
+        while (curr)
+        {
+            count++;
+            if (!curr->next)
+                tail = curr;
+            curr = curr->next;
+        }
+    }
+
+    void clear()
+    {
+        while (head)
+        {
+            ListNode *temp = head;
             head = head->next;
             delete temp;
         }
@@ -41,10 +65,12 @@ public:
         count = 0;
     }
 
-    void printAll(int max = 5) const {
-        ListNode* curr = head;
+    void printAll(int max = 5) const
+    {
+        ListNode *curr = head;
         int shown = 0;
-        while (curr && shown < max) {
+        while (curr && shown < max)
+        {
             cout << fixed << setprecision(2);
             cout << "ID: " << curr->data.transaction_id
                  << " | Location: " << curr->data.location
