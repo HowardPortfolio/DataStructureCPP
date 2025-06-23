@@ -118,21 +118,21 @@ void printMemoryUsage()
 {
     if (!isLinkedMode)
     {
-        size_t total =
+        size_t total1 =
             cardStore.size() * sizeof(Transaction) +
             achStore.size() * sizeof(Transaction) +
             upiStore.size() * sizeof(Transaction) +
             wireStore.size() * sizeof(Transaction);
-        cout << "[ARRAY] Estimated Memory Usage: " << total << " bytes\n";
+        cout << "[ARRAY] Estimated Memory Usage: " << total1 << " bytes\n";
     }
     else
     {
-        size_t total =
+        size_t total2 =
             cardLL.size() * (sizeof(Transaction) + sizeof(ListNode *)) +
             achLL.size() * (sizeof(Transaction) + sizeof(ListNode *)) +
             upiLL.size() * (sizeof(Transaction) + sizeof(ListNode *)) +
             wireLL.size() * (sizeof(Transaction) + sizeof(ListNode *));
-        cout << "[LINKED LIST] Estimated Memory Usage: " << total << " bytes\n";
+        cout << "[LINKED LIST] Estimated Memory Usage: " << total2 << " bytes\n";
     }
 }
 
@@ -834,12 +834,6 @@ void handleSortMenu()
         if (!isLinkedMode)
         {
             auto start = high_resolution_clock::now();
-            auto end = high_resolution_clock::now();
-            auto duration = duration_cast<milliseconds>(end - start);
-
-            cout << "\n[ARRAY] " << (isQuickSort ? "Quick Sort" : "Bucket Sort")
-                 << " Time: " << duration.count() << " ms\n";
-            printMemoryUsage();
 
             if (isQuickSort)
             {
@@ -847,6 +841,13 @@ void handleSortMenu()
                 quickSort(achStore, 0, achStore.size() - 1, !reverse);
                 quickSort(upiStore, 0, upiStore.size() - 1, !reverse);
                 quickSort(wireStore, 0, wireStore.size() - 1, !reverse);
+
+                auto end = high_resolution_clock::now();
+                auto duration = duration_cast<milliseconds>(end - start);
+
+                cout << "\n[ARRAY] " << (isQuickSort ? "Quick Sort" : "Bucket Sort")
+                     << " Time: " << duration.count() << " ms\n";
+                printMemoryUsage();
             }
             else
             {
@@ -854,6 +855,13 @@ void handleSortMenu()
                 bucketSortByLocation(achStore, reverse);
                 bucketSortByLocation(upiStore, reverse);
                 bucketSortByLocation(wireStore, reverse);
+
+                auto end = high_resolution_clock::now();
+                auto duration = duration_cast<milliseconds>(end - start);
+
+                cout << "\n[ARRAY] " << (isQuickSort ? "Quick Sort" : "Bucket Sort")
+                     << " Time: " << duration.count() << " ms\n";
+                printMemoryUsage();
             }
 
             bool exitEarly = false;
@@ -871,12 +879,6 @@ void handleSortMenu()
         else
         {
             auto start = high_resolution_clock::now();
-            auto end = high_resolution_clock::now();
-            auto duration = duration_cast<milliseconds>(end - start);
-
-            cout << "\n[LINKED LIST] " << (isQuickSort ? "Quick Sort" : "Bucket Sort")
-                 << " Time: " << duration.count() << " ms\n";
-            printMemoryUsage();
 
             if (isQuickSort)
             {
@@ -884,6 +886,12 @@ void handleSortMenu()
                 quickSort(achLL, !reverse);
                 quickSort(upiLL, !reverse);
                 quickSort(wireLL, !reverse);
+                auto end = high_resolution_clock::now();
+                auto duration = duration_cast<milliseconds>(end - start);
+
+                cout << "\n[LINKED LIST] " << (isQuickSort ? "Quick Sort" : "Bucket Sort")
+                     << " Time: " << duration.count() << " ms\n";
+                printMemoryUsage();
             }
             else
             {
@@ -891,6 +899,12 @@ void handleSortMenu()
                 bucketSortByLocation(achLL, reverse);
                 bucketSortByLocation(upiLL, reverse);
                 bucketSortByLocation(wireLL, reverse);
+                auto end = high_resolution_clock::now();
+                auto duration = duration_cast<milliseconds>(end - start);
+
+                cout << "\n[LINKED LIST] " << (isQuickSort ? "Quick Sort" : "Bucket Sort")
+                     << " Time: " << duration.count() << " ms\n";
+                printMemoryUsage();
             }
 
             bool exitEarly = false;
