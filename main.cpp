@@ -11,11 +11,11 @@
 #include "LinkedListTransactionStore.hpp"
 #include <chrono>
 
-ArrayTransactionStore cardStore, achStore, upiStore, wireStore;
-LinkedListTransactionStore cardLL, achLL, upiLL, wireLL;
-
 using namespace std;
 using namespace std::chrono;
+
+ArrayTransactionStore cardStore, achStore, upiStore, wireStore;
+LinkedListTransactionStore cardLL, achLL, upiLL, wireLL;
 
 static const std::string CITIES[] = {
     "Berlin", "Dubai", "London", "New York", "Singapore",
@@ -111,7 +111,7 @@ void exportLinkedListToJSON(const std::string &filename, const LinkedListTransac
 
     out << "]\n";
     out.close();
-    std::cout << "Exported to " << filename << "\n";
+    cout << "Exported to " << filename << "\n";
 }
 
 void printMemoryUsage()
