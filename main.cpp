@@ -17,7 +17,7 @@ using namespace std::chrono;
 ArrayTransactionStore cardStore, achStore, upiStore, wireStore;
 LinkedListTransactionStore cardLL, achLL, upiLL, wireLL;
 
-static const std::string CITIES[] = {
+static const string CITIES[] = {
     "Berlin", "Dubai", "London", "New York", "Singapore",
     "Sydney", "Tokyo", "Toronto"};
 constexpr int NUM_BUCKETS = sizeof(CITIES) / sizeof(CITIES[0]);
@@ -67,12 +67,12 @@ void exportStoreToJSON(const string &filename, const ArrayTransactionStore &stor
     cout << "Exported to " << filename << "\n";
 }
 
-void exportLinkedListToJSON(const std::string &filename, const LinkedListTransactionStore &store)
+void exportLinkedListToJSON(const string &filename, const LinkedListTransactionStore &store)
 {
-    std::ofstream out(filename);
+    ofstream out(filename);
     if (!out.is_open())
     {
-        std::cerr << "Failed to open file for JSON export.\n";
+        cerr << "Failed to open file for JSON export.\n";
         return;
     }
 
@@ -602,7 +602,7 @@ void bucketSortByLocation(ArrayTransactionStore &store, bool reverse = false)
 
     for (int i = 0; i < store.size(); ++i)
     {
-        const std::string &loc = store.get(i).location;
+        const string &loc = store.get(i).location;
         bool found = false;
         for (int j = 0; j < NUM_BUCKETS; ++j)
         {
