@@ -17,16 +17,14 @@ using namespace std::chrono;
 ArrayTransactionStore cardStore, achStore, upiStore, wireStore;
 LinkedListTransactionStore cardLL, achLL, upiLL, wireLL;
 
-static const string CITIES[] = {
-    "Berlin", "Dubai", "London", "New York", "Singapore",
-    "Sydney", "Tokyo", "Toronto"};
-constexpr int NUM_BUCKETS = sizeof(CITIES) / sizeof(CITIES[0]);
+// Backup stores for original unsorted data
+ArrayTransactionStore cardStoreOriginal, achStoreOriginal, upiStoreOriginal, wireStoreOriginal;
+LinkedListTransactionStore cardLLOriginal, achLLOriginal, upiLLOriginal, wireLLOriginal;
 
-#define MAX_TRANSACTIONS 1000
+#define MAX_TRANSACTIONS 10000
 bool isLinkedMode = false;
 
 // ------------------ Utility Functions ----------------------
-
 void exportStoreToJSON(const string &filename, const ArrayTransactionStore &store)
 {
     ofstream out(filename);
@@ -177,7 +175,7 @@ void paginateArrayResults(const string &title, const ArrayTransactionStore &stor
             cout << "No more data.\n";
         }
 
-        cout << "\n[N]ext Page | [P]revious Page | [B]ack | [E]xit to Main Menu: ";
+        cout << "\n[N]ext Page | [P]revious Page | [B]ack (Payment Channel) | [E]xit to Main Menu: ";
         cin >> nav;
         nav = tolower(nav);
         if (nav == 'n')
@@ -222,7 +220,145 @@ void paginateLinkedListResults(const string &title, const LinkedListTransactionS
         if (shown == 0)
             cout << "No more data.\n";
 
-        cout << "\n[N]ext Page | [P]revious Page | [B]ack | [E]xit to Main Menu: ";
+        cout << "\n[N]ext Page | [P]revious Page | [B]ack (Payment Channel) | [E]xit to Main Menu: ";
+        cin >> nav;
+        nav = tolower(nav);
+        if (nav == 'n')
+            page++;
+        else if (nav == 'p' && page > 0)
+            page--;
+        else if (nav == 'e')
+        {
+            exitEarly = true;
+            return;
+        }
+    } while (nav != 'b');
+}
+
+// Filtered pagination functions for array search results
+void paginateFilteredArrayResults(const string &title, const ArrayTransactionStore &store, const string &searchTermLower, bool &exitEarly, high_resolution_clock::time_point start)
+{
+    int page = 0;
+    char nav;
+    const int pageSize = 5;
+
+    do
+    {
+        cout << "\n--- " << title << " | Page " << (page + 1) << " ---\n";
+        int startIdx = page * pageSize;
+        int shown = 0;
+        int totalMatched = 0;
+
+        // Count total matches first
+        for (int i = 0; i < store.size(); ++i)
+        {
+            string typeLower = toLower(store.get(i).transaction_type);
+            if (typeLower.find(searchTermLower) != string::npos)
+                totalMatched++;
+        }
+
+        // Show matches for current page
+        int matchIndex = 0;
+        for (int i = 0; i < store.size() && shown < pageSize; ++i)
+        {
+            string typeLower = toLower(store.get(i).transaction_type);
+            if (typeLower.find(searchTermLower) != string::npos)
+            {
+                if (matchIndex >= startIdx)
+                {
+                    printTransaction(store.get(i));
+                    shown++;
+                }
+                matchIndex++;
+            }
+        }
+
+        if (shown == 0)
+            cout << "No more results.\n";
+        else
+            cout << "Showing " << shown << " results (Total matches: " << totalMatched << ")\n";
+
+        if (nav != 'n' && nav != 'p' && nav != 'b')
+        {
+            // Print time and memory info after showing results
+            auto end = high_resolution_clock::now();
+            auto duration = duration_cast<milliseconds>(end - start);
+            cout << "[INFO] Search Time: " << duration.count() << " ms\n";
+            printMemoryUsage();
+        }
+
+        cout << "\n[N]ext Page | [P]revious Page | [B]ack (Payment Channel) | [E]xit to Main Menu: ";
+        cin >> nav;
+        nav = tolower(nav);
+        if (nav == 'n')
+            page++;
+        else if (nav == 'p' && page > 0)
+            page--;
+        else if (nav == 'e')
+        {
+            exitEarly = true;
+            return;
+        }
+    } while (nav != 'b');
+}
+
+// Filtered pagination functions for linked list search results
+void paginateFilteredLinkedListResults(const string &title, const LinkedListTransactionStore &store, const string &searchTermLower, bool &exitEarly, high_resolution_clock::time_point start)
+{
+    int page = 0;
+    char nav;
+    const int pageSize = 5;
+
+    do
+    {
+        cout << "\n--- " << title << " | Page " << (page + 1) << " ---\n";
+        int startIdx = page * pageSize;
+        int shown = 0;
+        int totalMatched = 0;
+
+        // Count total matches first
+        ListNode *curr = store.getHead();
+        while (curr)
+        {
+            string typeLower = toLower(curr->data.transaction_type);
+            if (typeLower.find(searchTermLower) != string::npos)
+                totalMatched++;
+            curr = curr->next;
+        }
+
+        // Show matches for current page
+        int matchIndex = 0;
+        curr = store.getHead();
+        while (curr && shown < pageSize)
+        {
+            string typeLower = toLower(curr->data.transaction_type);
+            if (typeLower.find(searchTermLower) != string::npos)
+            {
+                if (matchIndex >= startIdx)
+                {
+                    printTransaction(curr->data);
+                    shown++;
+                }
+                matchIndex++;
+            }
+            curr = curr->next;
+        }
+
+        if (shown == 0)
+            cout << "No more results.\n";
+        else
+            cout << "Showing " << shown << " results (Total matches: " << totalMatched << ")\n";
+
+        if (nav != 'n' && nav != 'p' && nav != 'b')
+        {
+            // Print time and memory info after showing results
+            auto end = high_resolution_clock::now();
+            auto duration = duration_cast<milliseconds>(end - start);
+            cout << "[INFO] Search Time: " << duration.count() << " ms\n";
+            printMemoryUsage();
+        }
+
+        cout << "\n[N]ext Page | [P]revious Page | [B]ack (Payment Channel) | [E]xit to Main Menu: ";
         cin >> nav;
         nav = tolower(nav);
         if (nav == 'n')
@@ -245,28 +381,69 @@ Transaction parseTransaction(const string &line)
     Transaction t;
 
     getline(ss, t.transaction_id, ',');
+    if (t.transaction_id.empty())
+        t.transaction_id = "null";
+
     getline(ss, t.timestamp, ',');
+    if (t.timestamp.empty())
+        t.timestamp = "null";
+
     getline(ss, t.sender_account, ',');
+    if (t.sender_account.empty())
+        t.sender_account = "null";
+
     getline(ss, t.receiver_account, ',');
+    if (t.receiver_account.empty())
+        t.receiver_account = "null";
 
     getline(ss, cell, ',');
     t.amount = cell.empty() ? 0.0 : stod(cell);
 
     getline(ss, t.transaction_type, ',');
-    t.transaction_type = toLower(t.transaction_type);
+    if (t.transaction_type.empty())
+    {
+        t.transaction_type = "null";
+    }
+    else
+    {
+        t.transaction_type = toLower(t.transaction_type);
+    }
 
     getline(ss, t.merchant_category, ',');
+    if (t.merchant_category.empty())
+        t.merchant_category = "null";
+
     getline(ss, t.location, ',');
+    if (t.location.empty())
+        t.location = "null";
+
     getline(ss, t.device_used, ',');
+    if (t.device_used.empty())
+        t.device_used = "null";
 
     getline(ss, cell, ',');
-    for (char &c : cell)
-        c = tolower(c);
-    t.is_fraud = (cell == "true");
+    if (cell.empty())
+    {
+        t.is_fraud = false; // Default for empty fraud field
+    }
+    else
+    {
+        for (char &c : cell)
+            c = tolower(c);
+        t.is_fraud = (cell == "true");
+    }
 
     getline(ss, t.fraud_type, ',');
+    if (t.fraud_type.empty())
+        t.fraud_type = "null";
+
     getline(ss, t.time_since_last_transaction, ',');
+    if (t.time_since_last_transaction.empty())
+        t.time_since_last_transaction = "null";
+
     getline(ss, t.spending_deviation_score, ',');
+    if (t.spending_deviation_score.empty())
+        t.spending_deviation_score = "null";
 
     getline(ss, cell, ',');
     t.velocity_score = cell.empty() ? 0.0 : stod(cell);
@@ -275,10 +452,22 @@ Transaction parseTransaction(const string &line)
     t.geo_anomaly_score = cell.empty() ? 0.0 : stod(cell);
 
     getline(ss, t.payment_channel, ',');
-    t.payment_channel = toLower(t.payment_channel);
+    if (t.payment_channel.empty())
+    {
+        t.payment_channel = "null";
+    }
+    else
+    {
+        t.payment_channel = toLower(t.payment_channel);
+    }
 
     getline(ss, t.ip_address, ',');
+    if (t.ip_address.empty())
+        t.ip_address = "null";
+
     getline(ss, t.device_hash, ',');
+    if (t.device_hash.empty())
+        t.device_hash = "null";
 
     return t;
 }
@@ -304,6 +493,16 @@ void loadData(const string &filename)
     upiLL.clear();
     wireLL.clear();
 
+    // Clear backup stores
+    cardStoreOriginal.clear();
+    achStoreOriginal.clear();
+    upiStoreOriginal.clear();
+    wireStoreOriginal.clear();
+    cardLLOriginal.clear();
+    achLLOriginal.clear();
+    upiLLOriginal.clear();
+    wireLLOriginal.clear();
+
     while (getline(file, line))
     {
         if (line.empty() || count(line.begin(), line.end(), ',') < 17)
@@ -313,27 +512,57 @@ void loadData(const string &filename)
 
         const string &channel = t.payment_channel;
 
+        // Skip transactions with null or unknown payment channels
+        if (channel == "null")
+        {
+            continue;
+        }
+
         if (isLinkedMode)
         {
             if (channel == "card" && cardLL.size() < MAX_TRANSACTIONS)
+            {
                 cardLL.add(t);
+                cardLLOriginal.add(t);
+            }
             else if (channel == "ach" && achLL.size() < MAX_TRANSACTIONS)
+            {
                 achLL.add(t);
+                achLLOriginal.add(t);
+            }
             else if (channel == "upi" && upiLL.size() < MAX_TRANSACTIONS)
+            {
                 upiLL.add(t);
+                upiLLOriginal.add(t);
+            }
             else if (channel == "wire_transfer" && wireLL.size() < MAX_TRANSACTIONS)
+            {
                 wireLL.add(t);
+                wireLLOriginal.add(t);
+            }
         }
         else
         {
             if (channel == "card")
+            {
                 cardStore.add(t);
+                cardStoreOriginal.add(t);
+            }
             else if (channel == "ach")
+            {
                 achStore.add(t);
+                achStoreOriginal.add(t);
+            }
             else if (channel == "upi")
+            {
                 upiStore.add(t);
+                upiStoreOriginal.add(t);
+            }
             else if (channel == "wire_transfer")
+            {
                 wireStore.add(t);
+                wireStoreOriginal.add(t);
+            }
         }
     }
 
@@ -356,29 +585,23 @@ void loadData(const string &filename)
     }
 }
 
-void showFirst5(const ArrayTransactionStore &store)
-{
-    for (int i = 0; i < 5 && i < store.size(); ++i)
-        printTransaction(store.get(i));
-}
-
 void searchByTransactionType(const string &searchTypeLower, int page)
 {
-    int shown = 0, startIdx = page * 10;
+    int shown = 0, startIdx = page * 5;
     bool foundAny = false;
 
     if (!isLinkedMode)
     {
-        ArrayTransactionStore *stores[] = {&cardStore, &achStore, &upiStore, &wireStore};
+        ArrayTransactionStore stores[] = {cardStoreOriginal, achStoreOriginal, upiStoreOriginal, wireStoreOriginal};
         for (auto &store : stores)
         {
-            for (int i = 0; i < store->size(); i++)
+            for (int i = 0; i < store.size(); i++)
             {
-                string typeLower = toLower(store->get(i).transaction_type);
+                string typeLower = toLower(store.get(i).transaction_type);
                 if (typeLower.find(searchTypeLower) != string::npos)
                 {
-                    if (shown >= startIdx && shown < startIdx + 10)
-                        printTransaction(store->get(i));
+                    if (shown >= startIdx && shown < startIdx + 5)
+                        printTransaction(store.get(i));
                     shown++;
                     foundAny = true;
                 }
@@ -387,16 +610,16 @@ void searchByTransactionType(const string &searchTypeLower, int page)
     }
     else
     {
-        LinkedListTransactionStore *stores[] = {&cardLL, &achLL, &upiLL, &wireLL};
+        LinkedListTransactionStore stores[] = {cardLLOriginal, achLLOriginal, upiLLOriginal, wireLLOriginal};
         for (auto &store : stores)
         {
-            ListNode *curr = store->getHead();
+            ListNode *curr = store.getHead();
             while (curr)
             {
                 string typeLower = toLower(curr->data.transaction_type);
                 if (typeLower.find(searchTypeLower) != string::npos)
                 {
-                    if (shown >= startIdx && shown < startIdx + 10)
+                    if (shown >= startIdx && shown < startIdx + 5)
                         printTransaction(curr->data);
                     shown++;
                     foundAny = true;
@@ -468,7 +691,7 @@ void handleSearchMenu()
     {
         cout << "\n========= SEARCH MENU =========\n";
         cout << "1. Linear Search by Transaction Type\n";
-        cout << "2. Binary Search by Transaction Type\n";
+        cout << "2. Binary Search by Transaction Type (After Sorted)\n";
         cout << "3. Back to Main Menu\n";
         cout << "Choose an option: ";
         cin >> choice;
@@ -486,78 +709,73 @@ void handleSearchMenu()
 
         if (choice == 2)
         {
-            cout << "Enter Transaction Type to search: ";
+            cout << "Enter Transaction Type (case-insensitive): ";
             cin.ignore();
             string searchTerm;
             getline(cin, searchTerm);
             string searchTermLower = toLower(searchTerm);
 
             auto start = high_resolution_clock::now();
-
-            int page = 0;
-            char nav;
+            // Search across all stores using binary search
             bool found = false;
-            do
+            bool exitEarly = false;
+            if (!isLinkedMode)
             {
-                if (!isLinkedMode)
+                ArrayTransactionStore *stores[] = {&cardStore, &achStore, &upiStore, &wireStore};
+                string storeNames[] = {"Card Transactions", "ACH Transactions", "UPI Transactions", "Wire Transactions"};
+                for (int i = 0; i < 4 && !exitEarly; ++i)
                 {
-                    int idx = binarySearchTransactionType(cardStore, searchTermLower);
-                    if (idx != -1)
+                    int index = binarySearchTransactionType(*stores[i], searchTermLower);
+                    if (index != -1)
                     {
                         found = true;
-                        searchByTransactionType(searchTermLower, page);
-                        auto end = high_resolution_clock::now();
-                        auto duration = duration_cast<milliseconds>(end - start);
-                        cout << "\n[INFO] Binary Search Time: " << duration.count() << " ms\n";
-                        printMemoryUsage();
-                    }
-                    else
-                    {
-                        found = false;
-                        cout << "Not found.\n";
-                        auto end = high_resolution_clock::now();
-                        auto duration = duration_cast<milliseconds>(end - start);
-                        cout << "\n[INFO] Binary Search Time: " << duration.count() << " ms\n";
-                        printMemoryUsage();
-                        break;
                     }
                 }
-                else
+            }
+            else
+            {
+                LinkedListTransactionStore *stores[] = {&cardLL, &achLL, &upiLL, &wireLL};
+                string storeNames[] = {"Card Transactions", "ACH Transactions", "UPI Transactions", "Wire Transactions"};
+                for (int i = 0; i < 4 && !exitEarly; ++i)
                 {
-                    ListNode *node = binarySearchTransactionType(cardLL, searchTermLower);
+                    ListNode *node = binarySearchTransactionType(*stores[i], searchTermLower);
                     if (node)
                     {
                         found = true;
-                        searchByTransactionType(searchTermLower, page);
-                        auto end = high_resolution_clock::now();
-                        auto duration = duration_cast<milliseconds>(end - start);
-                        cout << "\n[INFO] Binary Search Time: " << duration.count() << " ms\n";
-                        printMemoryUsage();
-                    }
-                    else
-                    {
-                        found = false;
-                        cout << "Not found.\n";
-                        auto end = high_resolution_clock::now();
-                        auto duration = duration_cast<milliseconds>(end - start);
-                        cout << "\n[INFO] Binary Search Time: " << duration.count() << " ms\n";
-                        printMemoryUsage();
-                        break;
                     }
                 }
-                cout << "\nPage " << (page + 1) << " | [N]ext Page | [P]revious Page | [B]ack: ";
-                cin >> nav;
-                nav = tolower(nav);
-                if (nav == 'n')
-                    page++;
-                else if (nav == 'p' && page > 0)
-                    page--;
-            } while (nav != 'b');
+            }
 
+            // Now paginate results if found
+            if (!isLinkedMode)
+            {
+                ArrayTransactionStore *stores[] = {&cardStore, &achStore, &upiStore, &wireStore};
+                string storeNames[] = {"Card Transactions", "ACH Transactions", "UPI Transactions", "Wire Transactions"};
+                for (int i = 0; i < 4 && !exitEarly; ++i)
+                {
+                    int index = binarySearchTransactionType(*stores[i], searchTermLower);
+                    if (index != -1)
+                    {
+                        paginateFilteredArrayResults(storeNames[i], *stores[i], searchTermLower, exitEarly, start);
+                    }
+                }
+            }
+            else
+            {
+                LinkedListTransactionStore *stores[] = {&cardLL, &achLL, &upiLL, &wireLL};
+                string storeNames[] = {"Card Transactions", "ACH Transactions", "UPI Transactions", "Wire Transactions"};
+                for (int i = 0; i < 4 && !exitEarly; ++i)
+                {
+                    ListNode *node = binarySearchTransactionType(*stores[i], searchTermLower);
+                    if (node)
+                    {
+                        paginateFilteredLinkedListResults(storeNames[i], *stores[i], searchTermLower, exitEarly, start);
+                    }
+                }
+            }
             if (!found)
-                cout << "Not found.\n";
+                cout << "No results found.\n";
         }
-
         else if (choice == 1)
         {
             cout << "Enter Transaction Type (case-insensitive): ";
@@ -567,27 +785,95 @@ void handleSearchMenu()
             string searchTermLower = toLower(searchTerm);
 
             auto start = high_resolution_clock::now();
-
-            int page = 0;
-            char nav;
-            do
+            // Check if the term exists across all stores
+            bool found = false;
+            if (!isLinkedMode)
             {
-                searchByTransactionType(searchTermLower, page);
-                auto end = high_resolution_clock::now();
-                auto duration = duration_cast<milliseconds>(end - start);
-                cout << "\n[INFO] Linear Search Time: " << duration.count() << " ms\n";
-                printMemoryUsage();
-                cout << endl;
-                cout << "\nPage " << (page + 1) << " | [N]ext Page | [P]revious Page | [B]ack: ";
-                cin >> nav;
-                nav = tolower(nav);
-                if (nav == 'n')
-                    page++;
-                else if (nav == 'p' && page > 0)
-                    page--;
-            } while (nav != 'b');
-        }
+                ArrayTransactionStore *stores[] = {&cardStoreOriginal, &achStoreOriginal, &upiStoreOriginal, &wireStoreOriginal};
+                for (int s = 0; s < 4 && !found; ++s)
+                {
+                    for (int i = 0; i < stores[s]->size(); ++i)
+                    {
+                        if (toLower(stores[s]->get(i).transaction_type).find(searchTermLower) != string::npos)
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                LinkedListTransactionStore *stores[] = {&cardLLOriginal, &achLLOriginal, &upiLLOriginal, &wireLLOriginal};
+                for (int s = 0; s < 4 && !found; ++s)
+                {
+                    ListNode *curr = stores[s]->getHead();
+                    while (curr && !found)
+                    {
+                        if (toLower(curr->data.transaction_type).find(searchTermLower) != string::npos)
+                        {
+                            found = true;
+                            break;
+                        }
+                        curr = curr->next;
+                    }
+                }
+            }
 
+            // Now paginate results if found
+            if (found)
+            {
+                bool exitEarly = false;
+                if (!isLinkedMode)
+                {
+                    ArrayTransactionStore *stores[] = {&cardStoreOriginal, &achStoreOriginal, &upiStoreOriginal, &wireStoreOriginal};
+                    string storeNames[] = {"Card Transactions", "ACH Transactions", "UPI Transactions", "Wire Transactions"};
+                    for (int i = 0; i < 4 && !exitEarly; ++i)
+                    {
+                        bool hasMatches = false;
+                        for (int j = 0; j < stores[i]->size(); ++j)
+                        {
+                            if (toLower(stores[i]->get(j).transaction_type).find(searchTermLower) != string::npos)
+                            {
+                                hasMatches = true;
+                                break;
+                            }
+                        }
+                        if (hasMatches)
+                        {
+                            paginateFilteredArrayResults(storeNames[i], *stores[i], searchTermLower, exitEarly, start);
+                        }
+                    }
+                }
+                else
+                {
+                    LinkedListTransactionStore *stores[] = {&cardLLOriginal, &achLLOriginal, &upiLLOriginal, &wireLLOriginal};
+                    string storeNames[] = {"Card Transactions", "ACH Transactions", "UPI Transactions", "Wire Transactions"};
+                    for (int i = 0; i < 4 && !exitEarly; ++i)
+                    {
+                        bool hasMatches = false;
+                        ListNode *curr = stores[i]->getHead();
+                        while (curr && !hasMatches)
+                        {
+                            if (toLower(curr->data.transaction_type).find(searchTermLower) != string::npos)
+                            {
+                                hasMatches = true;
+                                break;
+                            }
+                            curr = curr->next;
+                        }
+                        if (hasMatches)
+                        {
+                            paginateFilteredLinkedListResults(storeNames[i], *stores[i], searchTermLower, exitEarly, start);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                cout << "No results found.\n";
+            }
+        }
         else
         {
             cout << "Invalid choice. Please try again.\n";
@@ -596,69 +882,144 @@ void handleSearchMenu()
     } while (true);
 }
 
+// ---------------- BUCKET SORT FOR ARRAY ----------------
 void bucketSortByLocation(ArrayTransactionStore &store, bool reverse = false)
 {
-    ArrayTransactionStore *buckets = new ArrayTransactionStore[NUM_BUCKETS];
+    int n = store.size();
+    if (n == 0)
+        return;
 
-    for (int i = 0; i < store.size(); ++i)
+    string *uniqueLocations = new string[n];
+    int uniqueCount = 0;
+    for (int i = 0; i < n; ++i)
     {
         const string &loc = store.get(i).location;
         bool found = false;
-        for (int j = 0; j < NUM_BUCKETS; ++j)
+        for (int j = 0; j < uniqueCount; ++j)
         {
-            if (loc == CITIES[j])
+            if (uniqueLocations[j] == loc)
             {
-                buckets[j].add(store.get(i));
                 found = true;
                 break;
             }
         }
         if (!found)
         {
-            cerr << "⚠️  Warning: Unknown location '" << loc << "'\n";
+            uniqueLocations[uniqueCount++] = loc;
+        }
+    }
+
+    for (int i = 0; i < uniqueCount - 1; ++i)
+    {
+        int target = i;
+        for (int j = i + 1; j < uniqueCount; ++j)
+        {
+            if (!reverse)
+            {
+                if (uniqueLocations[j] < uniqueLocations[target])
+                    target = j;
+            }
+            else
+            {
+                if (uniqueLocations[j] > uniqueLocations[target])
+                    target = j;
+            }
+        }
+        if (target != i)
+        {
+            string tmp = uniqueLocations[i];
+            uniqueLocations[i] = uniqueLocations[target];
+            uniqueLocations[target] = tmp;
+        }
+    }
+
+    ArrayTransactionStore *buckets = new ArrayTransactionStore[uniqueCount];
+    for (int i = 0; i < n; ++i)
+    {
+        const string &loc = store.get(i).location;
+        for (int j = 0; j < uniqueCount; j++)
+        {
+            if (uniqueLocations[j] == loc)
+            {
+                buckets[j].add(store.get(i));
+                break;
+            }
         }
     }
 
     store.clear();
-
-    if (!reverse)
+    for (int i = 0; i < uniqueCount; ++i)
     {
-        for (int i = 0; i < NUM_BUCKETS; ++i)
-            for (int j = 0; j < buckets[i].size(); ++j)
-                store.add(buckets[i].get(j));
+        for (int j = 0; j < buckets[i].size(); ++j)
+        {
+            store.add(buckets[i].get(j));
+        }
     }
-    else
-    {
-        for (int i = NUM_BUCKETS - 1; i >= 0; --i)
-            for (int j = 0; j < buckets[i].size(); ++j)
-                store.add(buckets[i].get(j));
-    }
-
     delete[] buckets;
+    delete[] uniqueLocations;
 }
 
+// ---------------- BUCKET SORT FOR LINKED LIST ----------------
 void bucketSortByLocation(LinkedListTransactionStore &store, bool reverse = false)
 {
-    const int LIMIT = min(store.size(), MAX_TRANSACTIONS);
-    LinkedListTransactionStore temp;
+    int n = store.size();
+    if (n == 0)
+        return;
 
+    string *uniqueLocations = new string[n];
+    int uniqueCount = 0;
     ListNode *curr = store.getHead();
-    int copied = 0;
-    while (curr && copied < LIMIT)
-    {
-        temp.add(curr->data);
-        curr = curr->next;
-        ++copied;
-    }
-
-    LinkedListTransactionStore buckets[NUM_BUCKETS];
-    curr = temp.getHead();
-
     while (curr)
     {
-        for (int j = 0; j < NUM_BUCKETS; ++j)
+        const string &loc = curr->data.location;
+        bool found = false;
+        for (int j = 0; j < uniqueCount; ++j)
         {
-            if (curr->data.location == CITIES[j])
+            if (uniqueLocations[j] == loc)
+            {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+        {
+            uniqueLocations[uniqueCount++] = loc;
+        }
+        curr = curr->next;
+    }
+
+    for (int i = 0; i < uniqueCount - 1; ++i)
+    {
+        int target = i;
+        for (int j = i + 1; j < uniqueCount; ++j)
+        {
+            if (!reverse)
+            {
+                if (uniqueLocations[j] < uniqueLocations[target])
+                    target = j;
+            }
+            else
+            {
+                if (uniqueLocations[j] > uniqueLocations[target])
+                    target = j;
+            }
+        }
+        if (target != i)
+        {
+            string tmp = uniqueLocations[i];
+            uniqueLocations[i] = uniqueLocations[target];
+            uniqueLocations[target] = tmp;
+        }
+    }
+
+    LinkedListTransactionStore *buckets = new LinkedListTransactionStore[uniqueCount];
+    curr = store.getHead();
+    while (curr)
+    {
+        const string &loc = curr->data.location;
+        for (int j = 0; j < uniqueCount; ++j)
+        {
+            if (uniqueLocations[j] == loc)
             {
                 buckets[j].add(curr->data);
                 break;
@@ -668,30 +1029,17 @@ void bucketSortByLocation(LinkedListTransactionStore &store, bool reverse = fals
     }
 
     store.clear();
-    if (!reverse)
+    for (int i = 0; i < uniqueCount; ++i)
     {
-        for (int i = 0; i < NUM_BUCKETS; ++i)
+        ListNode *node = buckets[i].getHead();
+        while (node)
         {
-            ListNode *node = buckets[i].getHead();
-            while (node)
-            {
-                store.add(node->data);
-                node = node->next;
-            }
+            store.add(node->data);
+            node = node->next;
         }
     }
-    else
-    {
-        for (int i = NUM_BUCKETS - 1; i >= 0; --i)
-        {
-            ListNode *node = buckets[i].getHead();
-            while (node)
-            {
-                store.add(node->data);
-                node = node->next;
-            }
-        }
-    }
+    delete[] buckets;
+    delete[] uniqueLocations;
 }
 
 // ---------------- QUICK SORT FOR ARRAY ----------------
@@ -803,6 +1151,50 @@ void quickSort(LinkedListTransactionStore &store, bool ascending = true)
     store.setHead(sorted);
 }
 
+// ---------------- BUBBLE SORT FOR ARRAY ----------------
+void bubbleSortByLocation(ArrayTransactionStore &store, bool reverse = false)
+{
+    int n = store.size();
+    for (int i = 0; i < n - 1; ++i)
+    {
+        for (int j = 0; j < n - i - 1; ++j)
+        {
+            bool condition = reverse ? (store.get(j).location < store.get(j + 1).location)
+                                     : (store.get(j).location > store.get(j + 1).location);
+            if (condition)
+            {
+                store.swap(j, j + 1);
+            }
+        }
+    }
+}
+
+// ---------------- BUBBLE SORT FOR LINKED LIST ----------------
+void bubbleSortByLocation(LinkedListTransactionStore &store, bool reverse = false)
+{
+    int n = store.size();
+    if (n < 2)
+        return;
+    for (int i = 0; i < n - 1; ++i)
+    {
+        ListNode *curr = store.getHead();
+        for (int j = 0; j < n - i - 1 && curr && curr->next; ++j)
+        {
+            bool condition = reverse ? (curr->data.location < curr->next->data.location)
+                                     : (curr->data.location > curr->next->data.location);
+            if (condition)
+            {
+                // Swap data only
+                Transaction temp = curr->data;
+                curr->data = curr->next->data;
+                curr->next->data = temp;
+            }
+            curr = curr->next;
+        }
+    }
+}
+
+// ------------------ SORT MENU ----------------------
 void handleSortMenu()
 {
     int choice;
@@ -813,7 +1205,9 @@ void handleSortMenu()
         cout << "2. Bucket Sort by Location (Z-A)\n";
         cout << "3. Quick Sort by Location (A-Z)\n";
         cout << "4. Quick Sort by Location (Z-A)\n";
-        cout << "5. Back to Main Menu\n";
+        cout << "5. Bubble Sort by Location (A-Z)\n";
+        cout << "6. Bubble Sort by Location (Z-A)\n";
+        cout << "7. Back to Main Menu\n";
         cout << "Choose an option: ";
         cin >> choice;
 
@@ -825,11 +1219,12 @@ void handleSortMenu()
             continue;
         }
 
-        if (choice == 5)
+        if (choice == 7)
             return;
 
         bool isQuickSort = (choice == 3 || choice == 4);
-        bool reverse = (choice == 2 || choice == 4); // Z-A if choice is 2 or 4
+        bool isBubbleSort = (choice == 5 || choice == 6);
+        bool reverse = (choice == 2 || choice == 4 || choice == 6); // Z-A if choice is 2, 4, 6, or 8
 
         if (!isLinkedMode)
         {
@@ -841,13 +1236,13 @@ void handleSortMenu()
                 quickSort(achStore, 0, achStore.size() - 1, !reverse);
                 quickSort(upiStore, 0, upiStore.size() - 1, !reverse);
                 quickSort(wireStore, 0, wireStore.size() - 1, !reverse);
-
-                auto end = high_resolution_clock::now();
-                auto duration = duration_cast<milliseconds>(end - start);
-
-                cout << "\n[ARRAY] " << (isQuickSort ? "Quick Sort" : "Bucket Sort")
-                     << " Time: " << duration.count() << " ms\n";
-                printMemoryUsage();
+            }
+            else if (isBubbleSort)
+            {
+                bubbleSortByLocation(cardStore, reverse);
+                bubbleSortByLocation(achStore, reverse);
+                bubbleSortByLocation(upiStore, reverse);
+                bubbleSortByLocation(wireStore, reverse);
             }
             else
             {
@@ -855,14 +1250,20 @@ void handleSortMenu()
                 bucketSortByLocation(achStore, reverse);
                 bucketSortByLocation(upiStore, reverse);
                 bucketSortByLocation(wireStore, reverse);
-
-                auto end = high_resolution_clock::now();
-                auto duration = duration_cast<milliseconds>(end - start);
-
-                cout << "\n[ARRAY] " << (isQuickSort ? "Quick Sort" : "Bucket Sort")
-                     << " Time: " << duration.count() << " ms\n";
-                printMemoryUsage();
             }
+
+            auto end = high_resolution_clock::now();
+            auto duration = duration_cast<milliseconds>(end - start);
+
+            cout << "\n[ARRAY] ";
+            if (isQuickSort)
+                cout << "Quick Sort";
+            else if (isBubbleSort)
+                cout << "Bubble Sort";
+            else
+                cout << "Bucket Sort";
+            cout << " Time: " << duration.count() << " ms\n";
+            printMemoryUsage();
 
             bool exitEarly = false;
             paginateArrayResults("Card Transactions", cardStore, exitEarly);
@@ -886,12 +1287,13 @@ void handleSortMenu()
                 quickSort(achLL, !reverse);
                 quickSort(upiLL, !reverse);
                 quickSort(wireLL, !reverse);
-                auto end = high_resolution_clock::now();
-                auto duration = duration_cast<milliseconds>(end - start);
-
-                cout << "\n[LINKED LIST] " << (isQuickSort ? "Quick Sort" : "Bucket Sort")
-                     << " Time: " << duration.count() << " ms\n";
-                printMemoryUsage();
+            }
+            else if (isBubbleSort)
+            {
+                bubbleSortByLocation(cardLL, reverse);
+                bubbleSortByLocation(achLL, reverse);
+                bubbleSortByLocation(upiLL, reverse);
+                bubbleSortByLocation(wireLL, reverse);
             }
             else
             {
@@ -899,13 +1301,20 @@ void handleSortMenu()
                 bucketSortByLocation(achLL, reverse);
                 bucketSortByLocation(upiLL, reverse);
                 bucketSortByLocation(wireLL, reverse);
-                auto end = high_resolution_clock::now();
-                auto duration = duration_cast<milliseconds>(end - start);
-
-                cout << "\n[LINKED LIST] " << (isQuickSort ? "Quick Sort" : "Bucket Sort")
-                     << " Time: " << duration.count() << " ms\n";
-                printMemoryUsage();
             }
+
+            auto end = high_resolution_clock::now();
+            auto duration = duration_cast<milliseconds>(end - start);
+
+            cout << "\n[LINKED LIST] ";
+            if (isQuickSort)
+                cout << "Quick Sort";
+            else if (isBubbleSort)
+                cout << "Bubble Sort";
+            else
+                cout << "Bucket Sort";
+            cout << " Time: " << duration.count() << " ms\n";
+            printMemoryUsage();
 
             bool exitEarly = false;
             paginateLinkedListResults("Card Transactions", cardLL, exitEarly);
@@ -921,23 +1330,6 @@ void handleSortMenu()
         }
 
     } while (true);
-}
-
-void showRandomSamples()
-{
-    srand(time(0));
-    ArrayTransactionStore *stores[] = {&cardStore, &achStore, &upiStore, &wireStore};
-    int idx = rand() % 4;
-
-    cout << "\n--- Random 5 Transactions ---\n";
-    for (int i = 0; i < 5; i++)
-    {
-        int c = rand() % 4;
-        if (stores[c]->size() == 0)
-            continue;
-        int j = rand() % stores[c]->size();
-        printTransaction(stores[c]->get(j));
-    }
 }
 
 // --------------- Main Menu --------------------
