@@ -84,4 +84,4 @@ public:
     }
 };
 
-#endif // LINKEDLISTTRANSACTIONSTORE_HPP
+#endif

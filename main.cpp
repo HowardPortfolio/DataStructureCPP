@@ -249,7 +249,6 @@ void paginateFilteredArrayResults(const string &title, const ArrayTransactionSto
         int shown = 0;
         int totalMatched = 0;
 
-        // Count total matches first
         for (int i = 0; i < store.size(); ++i)
         {
             string typeLower = toLower(store.get(i).transaction_type);
@@ -257,7 +256,6 @@ void paginateFilteredArrayResults(const string &title, const ArrayTransactionSto
                 totalMatched++;
         }
 
-        // Show matches for current page
         int matchIndex = 0;
         for (int i = 0; i < store.size() && shown < pageSize; ++i)
         {
@@ -280,7 +278,6 @@ void paginateFilteredArrayResults(const string &title, const ArrayTransactionSto
 
         if (nav != 'n' && nav != 'p' && nav != 'b')
         {
-            // Print time and memory info after showing results
             auto end = high_resolution_clock::now();
             auto duration = duration_cast<milliseconds>(end - start);
             cout << "[INFO] Search Time: " << duration.count() << " ms\n";
@@ -316,7 +313,6 @@ void paginateFilteredLinkedListResults(const string &title, const LinkedListTran
         int shown = 0;
         int totalMatched = 0;
 
-        // Count total matches first
         ListNode *curr = store.getHead();
         while (curr)
         {
@@ -326,7 +322,6 @@ void paginateFilteredLinkedListResults(const string &title, const LinkedListTran
             curr = curr->next;
         }
 
-        // Show matches for current page
         int matchIndex = 0;
         curr = store.getHead();
         while (curr && shown < pageSize)
@@ -351,7 +346,6 @@ void paginateFilteredLinkedListResults(const string &title, const LinkedListTran
 
         if (nav != 'n' && nav != 'p' && nav != 'b')
         {
-            // Print time and memory info after showing results
             auto end = high_resolution_clock::now();
             auto duration = duration_cast<milliseconds>(end - start);
             cout << "[INFO] Search Time: " << duration.count() << " ms\n";
@@ -424,7 +418,7 @@ Transaction parseTransaction(const string &line)
     getline(ss, cell, ',');
     if (cell.empty())
     {
-        t.is_fraud = false; // Default for empty fraud field
+        t.is_fraud = false;
     }
     else
     {
@@ -512,7 +506,6 @@ void loadData(const string &filename)
 
         const string &channel = t.payment_channel;
 
-        // Skip transactions with null or unknown payment channels
         if (channel == "null")
         {
             continue;
@@ -645,13 +638,13 @@ int binarySearchTransactionType(const ArrayTransactionStore &store, const string
         string midType = toLower(store.get(mid).transaction_type);
 
         if (midType == searchTermLower)
-            return mid; // Found
+            return mid;
         else if (midType < searchTermLower)
             low = mid + 1;
         else
             high = mid - 1;
     }
-    return -1; // Not found
+    return -1;
 }
 
 // ---------------- BINARY SEARCH FOR LINKED LIST ----------------
@@ -716,7 +709,6 @@ void handleSearchMenu()
             string searchTermLower = toLower(searchTerm);
 
             auto start = high_resolution_clock::now();
-            // Search across all stores using binary search
             bool found = false;
             bool exitEarly = false;
             if (!isLinkedMode)
@@ -746,7 +738,6 @@ void handleSearchMenu()
                 }
             }
 
-            // Now paginate results if found
             if (!isLinkedMode)
             {
                 ArrayTransactionStore *stores[] = {&cardStore, &achStore, &upiStore, &wireStore};
@@ -785,7 +776,6 @@ void handleSearchMenu()
             string searchTermLower = toLower(searchTerm);
 
             auto start = high_resolution_clock::now();
-            // Check if the term exists across all stores
             bool found = false;
             if (!isLinkedMode)
             {
@@ -820,7 +810,6 @@ void handleSearchMenu()
                 }
             }
 
-            // Now paginate results if found
             if (found)
             {
                 bool exitEarly = false;
@@ -1224,7 +1213,7 @@ void handleSortMenu()
 
         bool isQuickSort = (choice == 3 || choice == 4);
         bool isBubbleSort = (choice == 5 || choice == 6);
-        bool reverse = (choice == 2 || choice == 4 || choice == 6); // Z-A if choice is 2, 4, 6, or 8
+        bool reverse = (choice == 2 || choice == 4 || choice == 6);
 
         if (!isLinkedMode)
         {
