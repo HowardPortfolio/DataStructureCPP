@@ -3,7 +3,7 @@
 
 #include "Transaction.hpp"
 
-#define MAX_TRANSACTIONS 10000
+#define MAX_TRANSACTIONS 500000
 
 class ArrayTransactionStore
 {
@@ -32,6 +32,8 @@ public:
 
     int size() const { return count; }
     Transaction get(int index) const { return transactions[index]; }
+    const Transaction &getRef(int index) const { return transactions[index]; }
+    Transaction &getRef(int index) { return transactions[index]; }
     void clear() { count = 0; }
 };
 

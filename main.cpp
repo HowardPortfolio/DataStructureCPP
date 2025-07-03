@@ -21,8 +21,15 @@ LinkedListTransactionStore cardLL, achLL, upiLL, wireLL;
 ArrayTransactionStore cardStoreOriginal, achStoreOriginal, upiStoreOriginal, wireStoreOriginal;
 LinkedListTransactionStore cardLLOriginal, achLLOriginal, upiLLOriginal, wireLLOriginal;
 
-#define MAX_TRANSACTIONS 10000
+#define MAX_TRANSACTIONS 500000
 bool isLinkedMode = false;
+
+#define WIN32_LEAN_AND_MEAN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <psapi.h>
 
 // ------------------ Utility Functions ----------------------
 void exportStoreToJSON(const string &filename, const ArrayTransactionStore &store)
@@ -112,7 +119,7 @@ void exportLinkedListToJSON(const string &filename, const LinkedListTransactionS
     cout << "Exported to " << filename << "\n";
 }
 
-void printMemoryUsage()
+void printSpaceUsage()
 {
     if (!isLinkedMode)
     {
@@ -121,7 +128,7 @@ void printMemoryUsage()
             achStore.size() * sizeof(Transaction) +
             upiStore.size() * sizeof(Transaction) +
             wireStore.size() * sizeof(Transaction);
-        cout << "[ARRAY] Estimated Memory Usage: " << total1 << " bytes\n";
+        cout << "[ARRAY] Estimated Space Usage: " << total1 << " bytes\n";
     }
     else
     {
@@ -130,8 +137,29 @@ void printMemoryUsage()
             achLL.size() * (sizeof(Transaction) + sizeof(ListNode *)) +
             upiLL.size() * (sizeof(Transaction) + sizeof(ListNode *)) +
             wireLL.size() * (sizeof(Transaction) + sizeof(ListNode *));
-        cout << "[LINKED LIST] Estimated Memory Usage: " << total2 << " bytes\n";
+        cout << "[LINKED LIST] Estimated Space Usage: " << total2 << " bytes\n";
     }
+}
+
+double getRSSMemoryUsage()
+{
+    PROCESS_MEMORY_COUNTERS pmc;
+    if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc)))
+    {
+        return pmc.WorkingSetSize / (1024.0 * 1024.0);
+    }
+    return 0.0;
+}
+
+void printMemoryUsageComparison(double rssBefore, double rssAfter)
+{
+    cout << fixed << setprecision(2);
+    cout << "[RSS] RSS Before: " << rssBefore << " MB\n";
+    cout << "[RSS] RSS After: " << rssAfter << " MB\n";
+    if (rssAfter > rssBefore)
+        cout << "[RSS] Memory Usage: " << (rssAfter - rssBefore) << " MB\n";
+    else
+        cout << "[RSS] Memory Usage: " << (rssBefore - rssAfter) << " MB\n";
 }
 
 void printTransaction(const Transaction &t)
@@ -236,7 +264,7 @@ void paginateLinkedListResults(const string &title, const LinkedListTransactionS
 }
 
 // Filtered pagination functions for array search results
-void paginateFilteredArrayResults(const string &title, const ArrayTransactionStore &store, const string &searchTermLower, bool &exitEarly, high_resolution_clock::time_point start)
+void paginateFilteredArrayResults(const string &title, const ArrayTransactionStore &store, const string &searchTermLower, bool &exitEarly, high_resolution_clock::time_point start, const string &searchType)
 {
     int page = 0;
     char nav;
@@ -279,9 +307,12 @@ void paginateFilteredArrayResults(const string &title, const ArrayTransactionSto
         if (nav != 'n' && nav != 'p' && nav != 'b')
         {
             auto end = high_resolution_clock::now();
+            double rssAfter = getRSSMemoryUsage();
             auto duration = duration_cast<milliseconds>(end - start);
-            cout << "[INFO] Search Time: " << duration.count() << " ms\n";
-            printMemoryUsage();
+            cout << endl;
+            cout << "[INFO] " << searchType << " Search Time: " << duration.count() << " ms\n";
+            printSpaceUsage();
+            printMemoryUsageComparison(getRSSMemoryUsage(), rssAfter);
         }
 
         cout << "\n[N]ext Page | [P]revious Page | [B]ack (Payment Channel) | [E]xit to Main Menu: ";
@@ -300,7 +331,7 @@ void paginateFilteredArrayResults(const string &title, const ArrayTransactionSto
 }
 
 // Filtered pagination functions for linked list search results
-void paginateFilteredLinkedListResults(const string &title, const LinkedListTransactionStore &store, const string &searchTermLower, bool &exitEarly, high_resolution_clock::time_point start)
+void paginateFilteredLinkedListResults(const string &title, const LinkedListTransactionStore &store, const string &searchTermLower, bool &exitEarly, high_resolution_clock::time_point start, const string &searchType)
 {
     int page = 0;
     char nav;
@@ -347,9 +378,12 @@ void paginateFilteredLinkedListResults(const string &title, const LinkedListTran
         if (nav != 'n' && nav != 'p' && nav != 'b')
         {
             auto end = high_resolution_clock::now();
+            double rssAfter = getRSSMemoryUsage();
             auto duration = duration_cast<milliseconds>(end - start);
-            cout << "[INFO] Search Time: " << duration.count() << " ms\n";
-            printMemoryUsage();
+            cout << endl;
+            cout << "[INFO] " << searchType << " Search Time: " << duration.count() << " ms\n";
+            printSpaceUsage();
+            printMemoryUsageComparison(getRSSMemoryUsage(), rssAfter);
         }
 
         cout << "\n[N]ext Page | [P]revious Page | [B]ack (Payment Channel) | [E]xit to Main Menu: ";
@@ -497,7 +531,9 @@ void loadData(const string &filename)
     upiLLOriginal.clear();
     wireLLOriginal.clear();
 
-    while (getline(file, line))
+    int totalTransactionsLoaded = 0;
+
+    while (getline(file, line) && totalTransactionsLoaded < MAX_TRANSACTIONS)
     {
         if (line.empty() || count(line.begin(), line.end(), ',') < 17)
             continue;
@@ -513,25 +549,29 @@ void loadData(const string &filename)
 
         if (isLinkedMode)
         {
-            if (channel == "card" && cardLL.size() < MAX_TRANSACTIONS)
+            if (channel == "card")
             {
                 cardLL.add(t);
                 cardLLOriginal.add(t);
+                totalTransactionsLoaded++;
             }
-            else if (channel == "ach" && achLL.size() < MAX_TRANSACTIONS)
+            else if (channel == "ach")
             {
                 achLL.add(t);
                 achLLOriginal.add(t);
+                totalTransactionsLoaded++;
             }
-            else if (channel == "upi" && upiLL.size() < MAX_TRANSACTIONS)
+            else if (channel == "upi")
             {
                 upiLL.add(t);
                 upiLLOriginal.add(t);
+                totalTransactionsLoaded++;
             }
-            else if (channel == "wire_transfer" && wireLL.size() < MAX_TRANSACTIONS)
+            else if (channel == "wire_transfer")
             {
                 wireLL.add(t);
                 wireLLOriginal.add(t);
+                totalTransactionsLoaded++;
             }
         }
         else
@@ -540,28 +580,32 @@ void loadData(const string &filename)
             {
                 cardStore.add(t);
                 cardStoreOriginal.add(t);
+                totalTransactionsLoaded++;
             }
             else if (channel == "ach")
             {
                 achStore.add(t);
                 achStoreOriginal.add(t);
+                totalTransactionsLoaded++;
             }
             else if (channel == "upi")
             {
                 upiStore.add(t);
                 upiStoreOriginal.add(t);
+                totalTransactionsLoaded++;
             }
             else if (channel == "wire_transfer")
             {
                 wireStore.add(t);
                 wireStoreOriginal.add(t);
+                totalTransactionsLoaded++;
             }
         }
     }
 
     file.close();
 
-    cout << "\nLoaded Transactions:\n";
+    cout << "\nLoaded Transactions (Total: " << totalTransactionsLoaded << "):\n";
     if (isLinkedMode)
     {
         cout << "Card: " << cardLL.size()
@@ -708,6 +752,7 @@ void handleSearchMenu()
             getline(cin, searchTerm);
             string searchTermLower = toLower(searchTerm);
 
+            double rssBefore = getRSSMemoryUsage();
             auto start = high_resolution_clock::now();
             bool found = false;
             bool exitEarly = false;
@@ -747,7 +792,7 @@ void handleSearchMenu()
                     int index = binarySearchTransactionType(*stores[i], searchTermLower);
                     if (index != -1)
                     {
-                        paginateFilteredArrayResults(storeNames[i], *stores[i], searchTermLower, exitEarly, start);
+                        paginateFilteredArrayResults(storeNames[i], *stores[i], searchTermLower, exitEarly, start, "Binary");
                     }
                 }
             }
@@ -760,12 +805,14 @@ void handleSearchMenu()
                     ListNode *node = binarySearchTransactionType(*stores[i], searchTermLower);
                     if (node)
                     {
-                        paginateFilteredLinkedListResults(storeNames[i], *stores[i], searchTermLower, exitEarly, start);
+                        paginateFilteredLinkedListResults(storeNames[i], *stores[i], searchTermLower, exitEarly, start, "Binary");
                     }
                 }
             }
             if (!found)
+            {
                 cout << "No results found.\n";
+            }
         }
         else if (choice == 1)
         {
@@ -775,6 +822,7 @@ void handleSearchMenu()
             getline(cin, searchTerm);
             string searchTermLower = toLower(searchTerm);
 
+            double rssBefore = getRSSMemoryUsage();
             auto start = high_resolution_clock::now();
             bool found = false;
             if (!isLinkedMode)
@@ -830,7 +878,7 @@ void handleSearchMenu()
                         }
                         if (hasMatches)
                         {
-                            paginateFilteredArrayResults(storeNames[i], *stores[i], searchTermLower, exitEarly, start);
+                            paginateFilteredArrayResults(storeNames[i], *stores[i], searchTermLower, exitEarly, start, "Linear");
                         }
                     }
                 }
@@ -853,7 +901,7 @@ void handleSearchMenu()
                         }
                         if (hasMatches)
                         {
-                            paginateFilteredLinkedListResults(storeNames[i], *stores[i], searchTermLower, exitEarly, start);
+                            paginateFilteredLinkedListResults(storeNames[i], *stores[i], searchTermLower, exitEarly, start, "Linear");
                         }
                     }
                 }
@@ -882,7 +930,7 @@ void bucketSortByLocation(ArrayTransactionStore &store, bool reverse = false)
     int uniqueCount = 0;
     for (int i = 0; i < n; ++i)
     {
-        const string &loc = store.get(i).location;
+        const string &loc = store.getRef(i).location;
         bool found = false;
         for (int j = 0; j < uniqueCount; ++j)
         {
@@ -925,12 +973,12 @@ void bucketSortByLocation(ArrayTransactionStore &store, bool reverse = false)
     ArrayTransactionStore *buckets = new ArrayTransactionStore[uniqueCount];
     for (int i = 0; i < n; ++i)
     {
-        const string &loc = store.get(i).location;
+        const string &loc = store.getRef(i).location;
         for (int j = 0; j < uniqueCount; j++)
         {
             if (uniqueLocations[j] == loc)
             {
-                buckets[j].add(store.get(i));
+                buckets[j].add(store.getRef(i));
                 break;
             }
         }
@@ -1034,14 +1082,14 @@ void bucketSortByLocation(LinkedListTransactionStore &store, bool reverse = fals
 // ---------------- QUICK SORT FOR ARRAY ----------------
 int partition(ArrayTransactionStore &store, int low, int high, bool ascending)
 {
-    Transaction pivot = store.get(high);
+    const string &pivotLocation = store.getRef(high).location;
     int i = low - 1;
 
     for (int j = low; j < high; ++j)
     {
         bool condition = ascending
-                             ? store.get(j).location < pivot.location
-                             : store.get(j).location > pivot.location;
+                             ? store.getRef(j).location < pivotLocation
+                             : store.getRef(j).location > pivotLocation;
 
         if (condition)
         {
@@ -1065,122 +1113,61 @@ void quickSort(ArrayTransactionStore &store, int low, int high, bool ascending =
 }
 
 // ---------------- QUICK SORT FOR LINKED LIST ----------------
-ListNode *getTail(ListNode *head)
+ListNode *quickSortSimple(ListNode *head, bool ascending)
 {
-    while (head && head->next)
-        head = head->next;
-    return head;
-}
+    if (!head || !head->next)
+        return head;
 
-ListNode *partitionLinkedList(ListNode *head, ListNode *end, ListNode **newHead, ListNode **newEnd, bool ascending)
-{
-    ListNode *pivot = end;
-    ListNode *prev = nullptr, *cur = head, *tail = pivot;
+    ListNode *pivot = head;
+    ListNode *smallerHead = nullptr;
+    ListNode *greaterHead = nullptr;
+    ListNode *current = head->next;
 
-    while (cur != pivot)
+    while (current)
     {
-        bool condition = ascending
-                             ? cur->data.location < pivot->data.location
-                             : cur->data.location > pivot->data.location;
+        ListNode *next = current->next;
 
-        if (condition)
+        bool goToSmaller = ascending
+                               ? current->data.location < pivot->data.location
+                               : current->data.location > pivot->data.location;
+
+        if (goToSmaller)
         {
-            if (!*newHead)
-                *newHead = cur;
-            prev = cur;
-            cur = cur->next;
+            current->next = smallerHead;
+            smallerHead = current;
         }
         else
         {
-            if (prev)
-                prev->next = cur->next;
-            ListNode *tmp = cur->next;
-            cur->next = nullptr;
-            tail->next = cur;
-            tail = cur;
-            cur = tmp;
+            current->next = greaterHead;
+            greaterHead = current;
         }
+
+        current = next;
     }
 
-    if (!*newHead)
-        *newHead = pivot;
-    *newEnd = tail;
+    smallerHead = quickSortSimple(smallerHead, ascending);
+    greaterHead = quickSortSimple(greaterHead, ascending);
 
-    return pivot;
-}
+    pivot->next = greaterHead;
 
-ListNode *quickSortLinkedListRecursive(ListNode *head, ListNode *end, bool ascending)
-{
-    if (!head || head == end)
-        return head;
-
-    ListNode *newHead = nullptr, *newEnd = nullptr;
-    ListNode *pivot = partitionLinkedList(head, end, &newHead, &newEnd, ascending);
-
-    if (newHead != pivot)
+    if (smallerHead)
     {
-        ListNode *temp = newHead;
-        while (temp->next != pivot)
-            temp = temp->next;
-        temp->next = nullptr;
-
-        newHead = quickSortLinkedListRecursive(newHead, temp, ascending);
-
-        temp = getTail(newHead);
-        temp->next = pivot;
+        ListNode *tail = smallerHead;
+        while (tail->next)
+            tail = tail->next;
+        tail->next = pivot;
+        return smallerHead;
     }
-
-    pivot->next = quickSortLinkedListRecursive(pivot->next, newEnd, ascending);
-    return newHead;
+    else
+    {
+        return pivot;
+    }
 }
 
 void quickSort(LinkedListTransactionStore &store, bool ascending = true)
 {
-    ListNode *sorted = quickSortLinkedListRecursive(store.getHead(), getTail(store.getHead()), ascending);
+    ListNode *sorted = quickSortSimple(store.getHead(), ascending);
     store.setHead(sorted);
-}
-
-// ---------------- BUBBLE SORT FOR ARRAY ----------------
-void bubbleSortByLocation(ArrayTransactionStore &store, bool reverse = false)
-{
-    int n = store.size();
-    for (int i = 0; i < n - 1; ++i)
-    {
-        for (int j = 0; j < n - i - 1; ++j)
-        {
-            bool condition = reverse ? (store.get(j).location < store.get(j + 1).location)
-                                     : (store.get(j).location > store.get(j + 1).location);
-            if (condition)
-            {
-                store.swap(j, j + 1);
-            }
-        }
-    }
-}
-
-// ---------------- BUBBLE SORT FOR LINKED LIST ----------------
-void bubbleSortByLocation(LinkedListTransactionStore &store, bool reverse = false)
-{
-    int n = store.size();
-    if (n < 2)
-        return;
-    for (int i = 0; i < n - 1; ++i)
-    {
-        ListNode *curr = store.getHead();
-        for (int j = 0; j < n - i - 1 && curr && curr->next; ++j)
-        {
-            bool condition = reverse ? (curr->data.location < curr->next->data.location)
-                                     : (curr->data.location > curr->next->data.location);
-            if (condition)
-            {
-                // Swap data only
-                Transaction temp = curr->data;
-                curr->data = curr->next->data;
-                curr->next->data = temp;
-            }
-            curr = curr->next;
-        }
-    }
 }
 
 // ------------------ SORT MENU ----------------------
@@ -1194,9 +1181,7 @@ void handleSortMenu()
         cout << "2. Bucket Sort by Location (Z-A)\n";
         cout << "3. Quick Sort by Location (A-Z)\n";
         cout << "4. Quick Sort by Location (Z-A)\n";
-        cout << "5. Bubble Sort by Location (A-Z)\n";
-        cout << "6. Bubble Sort by Location (Z-A)\n";
-        cout << "7. Back to Main Menu\n";
+        cout << "5. Back to Main Menu\n";
         cout << "Choose an option: ";
         cin >> choice;
 
@@ -1208,37 +1193,34 @@ void handleSortMenu()
             continue;
         }
 
-        if (choice == 7)
+        if (choice == 5)
             return;
 
         bool isQuickSort = (choice == 3 || choice == 4);
-        bool isBubbleSort = (choice == 5 || choice == 6);
-        bool reverse = (choice == 2 || choice == 4 || choice == 6);
+        bool reverse = (choice == 2 || choice == 4);
 
         if (!isLinkedMode)
         {
             auto start = high_resolution_clock::now();
 
+            double rssBefore = 0.0, rssAfter = 0.0;
             if (isQuickSort)
             {
+                rssBefore = getRSSMemoryUsage();
                 quickSort(cardStore, 0, cardStore.size() - 1, !reverse);
                 quickSort(achStore, 0, achStore.size() - 1, !reverse);
                 quickSort(upiStore, 0, upiStore.size() - 1, !reverse);
                 quickSort(wireStore, 0, wireStore.size() - 1, !reverse);
-            }
-            else if (isBubbleSort)
-            {
-                bubbleSortByLocation(cardStore, reverse);
-                bubbleSortByLocation(achStore, reverse);
-                bubbleSortByLocation(upiStore, reverse);
-                bubbleSortByLocation(wireStore, reverse);
+                rssAfter = getRSSMemoryUsage();
             }
             else
             {
+                rssBefore = getRSSMemoryUsage();
                 bucketSortByLocation(cardStore, reverse);
                 bucketSortByLocation(achStore, reverse);
                 bucketSortByLocation(upiStore, reverse);
                 bucketSortByLocation(wireStore, reverse);
+                rssAfter = getRSSMemoryUsage();
             }
 
             auto end = high_resolution_clock::now();
@@ -1247,12 +1229,11 @@ void handleSortMenu()
             cout << "\n[ARRAY] ";
             if (isQuickSort)
                 cout << "Quick Sort";
-            else if (isBubbleSort)
-                cout << "Bubble Sort";
             else
                 cout << "Bucket Sort";
             cout << " Time: " << duration.count() << " ms\n";
-            printMemoryUsage();
+            printSpaceUsage();
+            printMemoryUsageComparison(rssBefore, rssAfter);
 
             bool exitEarly = false;
             paginateArrayResults("Card Transactions", cardStore, exitEarly);
@@ -1270,40 +1251,36 @@ void handleSortMenu()
         {
             auto start = high_resolution_clock::now();
 
+            double rssBefore = 0.0, rssAfter = 0.0;
             if (isQuickSort)
             {
+                rssBefore = getRSSMemoryUsage();
                 quickSort(cardLL, !reverse);
                 quickSort(achLL, !reverse);
                 quickSort(upiLL, !reverse);
                 quickSort(wireLL, !reverse);
-            }
-            else if (isBubbleSort)
-            {
-                bubbleSortByLocation(cardLL, reverse);
-                bubbleSortByLocation(achLL, reverse);
-                bubbleSortByLocation(upiLL, reverse);
-                bubbleSortByLocation(wireLL, reverse);
+                rssAfter = getRSSMemoryUsage();
             }
             else
             {
+                rssBefore = getRSSMemoryUsage();
                 bucketSortByLocation(cardLL, reverse);
                 bucketSortByLocation(achLL, reverse);
                 bucketSortByLocation(upiLL, reverse);
                 bucketSortByLocation(wireLL, reverse);
+                rssAfter = getRSSMemoryUsage();
             }
-
             auto end = high_resolution_clock::now();
             auto duration = duration_cast<milliseconds>(end - start);
 
             cout << "\n[LINKED LIST] ";
             if (isQuickSort)
                 cout << "Quick Sort";
-            else if (isBubbleSort)
-                cout << "Bubble Sort";
             else
                 cout << "Bucket Sort";
             cout << " Time: " << duration.count() << " ms\n";
-            printMemoryUsage();
+            printSpaceUsage();
+            printMemoryUsageComparison(rssBefore, rssAfter);
 
             bool exitEarly = false;
             paginateLinkedListResults("Card Transactions", cardLL, exitEarly);
@@ -1335,7 +1312,12 @@ void displayMainMenu()
 int main()
 {
     int mode;
-    cout << "Choose mode: 1 = Array, 2 = Linked List: ";
+    cout << "-------------------------------\n";
+    cout << "|   Choose mode:              |\n";
+    cout << "|   1 = Array                 |\n";
+    cout << "|   2 = Linked List           |\n";
+    cout << "-------------------------------\n";
+    cout << "Enter your choice: ";
     cin >> mode;
     isLinkedMode = (mode == 2);
 
