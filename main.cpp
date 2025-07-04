@@ -622,54 +622,97 @@ void loadData(const string &filename)
     }
 }
 
-void searchByTransactionType(const string &searchTypeLower, int page)
+// ---------------- LINEAR SEARCH FOR ARRAY ----------------
+void linearSearchByTransactionType(const string &searchTermLower)
 {
-    int shown = 0, startIdx = page * 5;
-    bool foundAny = false;
-
+    double rssBefore = getRSSMemoryUsage();
+    auto start = high_resolution_clock::now();
+    bool found = false;
     if (!isLinkedMode)
     {
-        ArrayTransactionStore stores[] = {cardStoreOriginal, achStoreOriginal, upiStoreOriginal, wireStoreOriginal};
-        for (auto &store : stores)
+        ArrayTransactionStore *stores[] = {&cardStoreOriginal, &achStoreOriginal, &upiStoreOriginal, &wireStoreOriginal};
+        for (int s = 0; s < 4 && !found; ++s)
         {
-            for (int i = 0; i < store.size(); i++)
+            for (int i = 0; i < stores[s]->size(); ++i)
             {
-                string typeLower = toLower(store.get(i).transaction_type);
-                if (typeLower.find(searchTypeLower) != string::npos)
+                if (toLower(stores[s]->get(i).transaction_type).find(searchTermLower) != string::npos)
                 {
-                    if (shown >= startIdx && shown < startIdx + 5)
-                        printTransaction(store.get(i));
-                    shown++;
-                    foundAny = true;
+                    found = true;
+                    break;
                 }
             }
         }
     }
     else
     {
-        LinkedListTransactionStore stores[] = {cardLLOriginal, achLLOriginal, upiLLOriginal, wireLLOriginal};
-        for (auto &store : stores)
+        LinkedListTransactionStore *stores[] = {&cardLLOriginal, &achLLOriginal, &upiLLOriginal, &wireLLOriginal};
+        for (int s = 0; s < 4 && !found; ++s)
         {
-            ListNode *curr = store.getHead();
-            while (curr)
+            ListNode *curr = stores[s]->getHead();
+            while (curr && !found)
             {
-                string typeLower = toLower(curr->data.transaction_type);
-                if (typeLower.find(searchTypeLower) != string::npos)
+                if (toLower(curr->data.transaction_type).find(searchTermLower) != string::npos)
                 {
-                    if (shown >= startIdx && shown < startIdx + 5)
-                        printTransaction(curr->data);
-                    shown++;
-                    foundAny = true;
+                    found = true;
+                    break;
                 }
                 curr = curr->next;
             }
         }
     }
 
-    if (!foundAny)
+    if (found)
+    {
+        bool exitEarly = false;
+        if (!isLinkedMode)
+        {
+            ArrayTransactionStore *stores[] = {&cardStoreOriginal, &achStoreOriginal, &upiStoreOriginal, &wireStoreOriginal};
+            string storeNames[] = {"Card Transactions", "ACH Transactions", "UPI Transactions", "Wire Transactions"};
+            for (int i = 0; i < 4 && !exitEarly; ++i)
+            {
+                bool hasMatches = false;
+                for (int j = 0; j < stores[i]->size(); ++j)
+                {
+                    if (toLower(stores[i]->get(j).transaction_type).find(searchTermLower) != string::npos)
+                    {
+                        hasMatches = true;
+                        break;
+                    }
+                }
+                if (hasMatches)
+                {
+                    paginateFilteredArrayResults(storeNames[i], *stores[i], searchTermLower, exitEarly, start, "Linear");
+                }
+            }
+        }
+        else
+        {
+            LinkedListTransactionStore *stores[] = {&cardLLOriginal, &achLLOriginal, &upiLLOriginal, &wireLLOriginal};
+            string storeNames[] = {"Card Transactions", "ACH Transactions", "UPI Transactions", "Wire Transactions"};
+            for (int i = 0; i < 4 && !exitEarly; ++i)
+            {
+                bool hasMatches = false;
+                ListNode *curr = stores[i]->getHead();
+                while (curr && !hasMatches)
+                {
+                    if (toLower(curr->data.transaction_type).find(searchTermLower) != string::npos)
+                    {
+                        hasMatches = true;
+                        break;
+                    }
+                    curr = curr->next;
+                }
+                if (hasMatches)
+                {
+                    paginateFilteredLinkedListResults(storeNames[i], *stores[i], searchTermLower, exitEarly, start, "Linear");
+                }
+            }
+        }
+    }
+    else
+    {
         cout << "No results found.\n";
-    else if (shown <= startIdx)
-        cout << "No more results.\n";
+    }
 }
 
 // ---------------- BINARY SEARCH FOR ARRAY ----------------
@@ -821,95 +864,7 @@ void handleSearchMenu()
             string searchTerm;
             getline(cin, searchTerm);
             string searchTermLower = toLower(searchTerm);
-
-            double rssBefore = getRSSMemoryUsage();
-            auto start = high_resolution_clock::now();
-            bool found = false;
-            if (!isLinkedMode)
-            {
-                ArrayTransactionStore *stores[] = {&cardStoreOriginal, &achStoreOriginal, &upiStoreOriginal, &wireStoreOriginal};
-                for (int s = 0; s < 4 && !found; ++s)
-                {
-                    for (int i = 0; i < stores[s]->size(); ++i)
-                    {
-                        if (toLower(stores[s]->get(i).transaction_type).find(searchTermLower) != string::npos)
-                        {
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-            }
-            else
-            {
-                LinkedListTransactionStore *stores[] = {&cardLLOriginal, &achLLOriginal, &upiLLOriginal, &wireLLOriginal};
-                for (int s = 0; s < 4 && !found; ++s)
-                {
-                    ListNode *curr = stores[s]->getHead();
-                    while (curr && !found)
-                    {
-                        if (toLower(curr->data.transaction_type).find(searchTermLower) != string::npos)
-                        {
-                            found = true;
-                            break;
-                        }
-                        curr = curr->next;
-                    }
-                }
-            }
-
-            if (found)
-            {
-                bool exitEarly = false;
-                if (!isLinkedMode)
-                {
-                    ArrayTransactionStore *stores[] = {&cardStoreOriginal, &achStoreOriginal, &upiStoreOriginal, &wireStoreOriginal};
-                    string storeNames[] = {"Card Transactions", "ACH Transactions", "UPI Transactions", "Wire Transactions"};
-                    for (int i = 0; i < 4 && !exitEarly; ++i)
-                    {
-                        bool hasMatches = false;
-                        for (int j = 0; j < stores[i]->size(); ++j)
-                        {
-                            if (toLower(stores[i]->get(j).transaction_type).find(searchTermLower) != string::npos)
-                            {
-                                hasMatches = true;
-                                break;
-                            }
-                        }
-                        if (hasMatches)
-                        {
-                            paginateFilteredArrayResults(storeNames[i], *stores[i], searchTermLower, exitEarly, start, "Linear");
-                        }
-                    }
-                }
-                else
-                {
-                    LinkedListTransactionStore *stores[] = {&cardLLOriginal, &achLLOriginal, &upiLLOriginal, &wireLLOriginal};
-                    string storeNames[] = {"Card Transactions", "ACH Transactions", "UPI Transactions", "Wire Transactions"};
-                    for (int i = 0; i < 4 && !exitEarly; ++i)
-                    {
-                        bool hasMatches = false;
-                        ListNode *curr = stores[i]->getHead();
-                        while (curr && !hasMatches)
-                        {
-                            if (toLower(curr->data.transaction_type).find(searchTermLower) != string::npos)
-                            {
-                                hasMatches = true;
-                                break;
-                            }
-                            curr = curr->next;
-                        }
-                        if (hasMatches)
-                        {
-                            paginateFilteredLinkedListResults(storeNames[i], *stores[i], searchTermLower, exitEarly, start, "Linear");
-                        }
-                    }
-                }
-            }
-            else
-            {
-                cout << "No results found.\n";
-            }
+            linearSearchByTransactionType(searchTermLower);
         }
         else
         {
