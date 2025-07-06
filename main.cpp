@@ -1039,14 +1039,14 @@ void quickSortInPlace(ArrayTransactionStore &store, int low, int high, bool asce
         if (less)
         {
             if (lt != i)
-                std::swap(store.getRef(lt), store.getRef(i));
+                swap(store.getRef(lt), store.getRef(i));
             ++lt;
             ++i;
         }
         else if (greater)
         {
             if (i != gt)
-                std::swap(store.getRef(i), store.getRef(gt));
+                swap(store.getRef(i), store.getRef(gt));
             --gt;
         }
         else

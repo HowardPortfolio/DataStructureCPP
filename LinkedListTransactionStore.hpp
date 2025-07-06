@@ -39,8 +39,6 @@ public:
     void setHead(ListNode *newHead)
     {
         head = newHead;
-
-        // Recalculate tail and count
         tail = nullptr;
         count = 0;
         ListNode *curr = head;
